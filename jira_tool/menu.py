@@ -143,7 +143,7 @@ def _menu_restore(config: JiraConfig) -> None:
 
     session = build_session(config)
     client = JiraClient(session, config.jira_url, config)
-    progress = ProgressTracker(backup_dir)
+    progress = ProgressTracker(backup_dir, dry_run=dry_run)
     manager = RestoreManager(client, config, progress)
 
     manager.restore_project(

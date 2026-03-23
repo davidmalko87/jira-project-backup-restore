@@ -19,8 +19,11 @@ logger = logging.getLogger("jira_tool")
 class ProgressTracker:
     """Tracks restore progress for resumability."""
 
-    def __init__(self, backup_dir: str) -> None:
+    def __init__(
+        self, backup_dir: str, *, dry_run: bool = False,
+    ) -> None:
         self.backup_dir = backup_dir
+        self._dry_run = dry_run
         self._mapping_path = os.path.join(backup_dir, "key_mapping.json")
         self._progress_path = os.path.join(
             backup_dir, "restore_progress.json",
@@ -29,15 +32,21 @@ class ProgressTracker:
             backup_dir, "user_cache.json",
         )
 
-        self._key_mapping: dict[str, str] = self._load_or_empty(
-            self._mapping_path,
-        )
-        self._progress: dict[str, Any] = self._load_or_empty(
-            self._progress_path,
-        )
-        self._user_cache: dict[str, str | None] = self._load_or_empty(
-            self._user_cache_path,
-        )
+        if dry_run:
+            # Dry run: start with empty state, never write to disk
+            self._key_mapping: dict[str, str] = {}
+            self._progress: dict[str, Any] = {}
+            self._user_cache: dict[str, str | None] = {}
+        else:
+            self._key_mapping = self._load_or_empty(
+                self._mapping_path,
+            )
+            self._progress = self._load_or_empty(
+                self._progress_path,
+            )
+            self._user_cache = self._load_or_empty(
+                self._user_cache_path,
+            )
 
     # ------------------------------------------------------------------
     # Key mapping (original issue key -> cloud issue key)
@@ -51,7 +60,8 @@ class ProgressTracker:
     def map_key(self, orig_key: str, cloud_key: str) -> None:
         """Record a key mapping and persist immediately."""
         self._key_mapping[orig_key] = cloud_key
-        save_json(self._key_mapping, self._mapping_path)
+        if not self._dry_run:
+            save_json(self._key_mapping, self._mapping_path)
 
     def get_cloud_key(self, orig_key: str) -> str | None:
         """Look up cloud key for an original key."""
@@ -106,7 +116,8 @@ class ProgressTracker:
     def cache_user(self, email: str, account_id: str | None) -> None:
         """Cache a user lookup result and persist."""
         self._user_cache[email] = account_id
-        save_json(self._user_cache, self._user_cache_path)
+        if not self._dry_run:
+            save_json(self._user_cache, self._user_cache_path)
 
     def get_cached_user(self, email: str) -> tuple[bool, str | None]:
         """Check user cache.
@@ -125,7 +136,8 @@ class ProgressTracker:
 
     def _save_progress(self) -> None:
         """Persist progress state to disk."""
-        save_json(self._progress, self._progress_path)
+        if not self._dry_run:
+            save_json(self._progress, self._progress_path)
 
     @staticmethod
     def _load_or_empty(path: str) -> dict:

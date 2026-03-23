@@ -81,7 +81,9 @@ def main() -> None:
 
         session = build_session(config)
         client = JiraClient(session, config.jira_url, config)
-        progress = ProgressTracker(args.restore)
+        progress = ProgressTracker(
+            args.restore, dry_run=args.dry_run,
+        )
         manager = RestoreManager(client, config, progress)
 
         manager.restore_project(
