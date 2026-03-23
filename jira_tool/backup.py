@@ -124,13 +124,12 @@ class BackupManager:
         """Paginated fetch of all issues with all fields + changelog."""
         logger.info("[+] Fetching issues...")
 
-        expand = ["changelog"] if self.config.include_changelog else []
         search_body: dict = {
             "jql": f"project = {project_key} ORDER BY created ASC",
             "fields": ["*all"],
         }
-        if expand:
-            search_body["expand"] = expand
+        if self.config.include_changelog:
+            search_body["expand"] = "changelog"
 
         all_issues: list[dict] = []
         start = 0
