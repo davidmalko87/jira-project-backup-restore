@@ -207,8 +207,44 @@ class RestoreManager:
                     logger.info(
                         "  Created: %s -> %s", orig_key, cloud_key,
                     )
+                    self._post_metadata_comment(
+                        cloud_key, orig_key, fields,
+                    )
                     ok += 1
                 except JiraApiError as exc:
+                    # Retry without assignee if user can't be assigned
+                    if (
+                        exc.status_code == 400
+                        and "assignee" in payload.get("fields", {})
+                        and "cannot be assigned" in str(exc)
+                    ):
+                        payload["fields"].pop("assignee")
+                        logger.warning(
+                            "  Assignee rejected for %s — "
+                            "retrying without assignee",
+                            orig_key,
+                        )
+                        try:
+                            result = self.client.post(
+                                "/rest/api/3/issue", payload,
+                            )
+                            cloud_key = result.get("key", "")
+                            self.progress.map_key(
+                                orig_key, cloud_key,
+                            )
+                            logger.info(
+                                "  Created: %s -> %s "
+                                "(without assignee)",
+                                orig_key, cloud_key,
+                            )
+                            self._post_metadata_comment(
+                                cloud_key, orig_key, fields,
+                            )
+                            ok += 1
+                            continue
+                        except JiraApiError as exc2:
+                            exc = exc2
+
                     logger.error(
                         "  Failed %s: %s", orig_key, exc,
                     )
@@ -247,9 +283,12 @@ class RestoreManager:
         )
         assignee_id = self._resolve_user(assignee_email)
 
-        # Description -> ADF
-        desc_text = fields.get("description") or ""
-        description_adf = text_to_adf(desc_text)
+        # Description -> ADF (may already be ADF dict from v3 backup)
+        desc_raw = fields.get("description")
+        if isinstance(desc_raw, dict) and desc_raw.get("type") == "doc":
+            description_adf = desc_raw
+        else:
+            description_adf = text_to_adf(desc_raw or "")
 
         payload: dict = {
             "fields": {
@@ -287,6 +326,141 @@ class RestoreManager:
             ]
 
         return payload
+
+    @staticmethod
+    def _build_metadata_text(
+        orig_key: str, fields: dict,
+    ) -> str:
+        """Build a metadata summary from backup fields.
+
+        Includes original key, status, assignee, and other notable
+        fields that cannot be set via the API during restore.
+        """
+        lines = ["--- Backup Metadata ---"]
+        lines.append(f"Original Key: {orig_key}")
+
+        # Status
+        status_name = (
+            (fields.get("status") or {}).get("name")
+        )
+        if status_name:
+            lines.append(f"Status: {status_name}")
+
+        # Resolution
+        resolution = (
+            (fields.get("resolution") or {}).get("name")
+        )
+        if resolution:
+            lines.append(f"Resolution: {resolution}")
+
+        # Assignee
+        assignee = fields.get("assignee") or {}
+        assignee_name = assignee.get(
+            "displayName",
+            assignee.get("emailAddress"),
+        )
+        if assignee_name:
+            lines.append(f"Assignee: {assignee_name}")
+
+        # Reporter
+        reporter = fields.get("reporter") or {}
+        reporter_name = reporter.get(
+            "displayName",
+            reporter.get("emailAddress"),
+        )
+        if reporter_name:
+            lines.append(f"Reporter: {reporter_name}")
+
+        # Priority
+        priority = (fields.get("priority") or {}).get("name")
+        if priority:
+            lines.append(f"Priority: {priority}")
+
+        # Created / Updated / Resolved dates
+        if fields.get("created"):
+            lines.append(f"Created: {fields['created']}")
+        if fields.get("updated"):
+            lines.append(f"Updated: {fields['updated']}")
+        if fields.get("resolutiondate"):
+            lines.append(f"Resolved: {fields['resolutiondate']}")
+
+        # Due date
+        if fields.get("duedate"):
+            lines.append(f"Due Date: {fields['duedate']}")
+
+        # Story points (common custom fields)
+        for cf_key in ("story_points", "customfield_10016"):
+            sp = fields.get(cf_key)
+            if sp is not None:
+                lines.append(f"Story Points: {sp}")
+                break
+
+        # Sprint
+        sprint = fields.get("sprint") or fields.get(
+            "customfield_10020",
+        )
+        if sprint:
+            if isinstance(sprint, list):
+                sprint_names = [
+                    s.get("name", str(s))
+                    if isinstance(s, dict) else str(s)
+                    for s in sprint
+                ]
+                lines.append(f"Sprint: {', '.join(sprint_names)}")
+            elif isinstance(sprint, dict):
+                lines.append(
+                    f"Sprint: {sprint.get('name', str(sprint))}",
+                )
+
+        # Epic link
+        epic_key = None
+        epic_field = fields.get("customfield_10008")
+        if isinstance(epic_field, dict):
+            epic_key = epic_field.get("key")
+        elif isinstance(epic_field, str):
+            epic_key = epic_field
+        # Also check epic name
+        epic_name = fields.get("customfield_10011")
+        if epic_key:
+            lines.append(f"Epic Link: {epic_key}")
+        if epic_name and isinstance(epic_name, str):
+            lines.append(f"Epic Name: {epic_name}")
+
+        # Time tracking
+        tt = fields.get("timetracking") or {}
+        if tt.get("originalEstimate"):
+            lines.append(
+                f"Original Estimate: {tt['originalEstimate']}",
+            )
+        if tt.get("timeSpent"):
+            lines.append(f"Time Spent: {tt['timeSpent']}")
+
+        # Environment
+        env = fields.get("environment")
+        if env and isinstance(env, str):
+            lines.append(f"Environment: {env}")
+
+        lines.append("--- End Metadata ---")
+        return "\n".join(lines)
+
+    def _post_metadata_comment(
+        self,
+        cloud_key: str,
+        orig_key: str,
+        fields: dict,
+    ) -> None:
+        """Post a comment with backup metadata to the restored issue."""
+        text = self._build_metadata_text(orig_key, fields)
+        try:
+            self.client.post(
+                f"/rest/api/3/issue/{cloud_key}/comment",
+                {"body": text_to_adf(text)},
+            )
+        except JiraApiError as exc:
+            logger.warning(
+                "  Could not add metadata comment to %s: %s",
+                cloud_key, exc,
+            )
 
     def _resolve_user(self, email: str) -> str | None:
         """Look up Cloud accountId by email, with caching."""
