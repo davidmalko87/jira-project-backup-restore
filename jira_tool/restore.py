@@ -34,6 +34,35 @@ from jira_tool.utils import load_json
 logger = logging.getLogger("jira_tool")
 
 
+def _extract_text_from_adf(adf: dict) -> str:
+    """Recursively extract plain text from an ADF document."""
+    parts: list[str] = []
+
+    def _walk(node: dict | list) -> None:
+        if isinstance(node, list):
+            for item in node:
+                _walk(item)
+            return
+        if not isinstance(node, dict):
+            return
+        if node.get("type") == "text":
+            parts.append(node.get("text", ""))
+        elif node.get("type") == "hardBreak":
+            parts.append("\n")
+        # Recurse into content
+        for child in node.get("content", []):
+            _walk(child)
+        # Add newline after block-level nodes
+        if node.get("type") in (
+            "paragraph", "heading", "blockquote",
+            "codeBlock", "listItem", "tableCell",
+        ):
+            parts.append("\n")
+
+    _walk(adf)
+    return "".join(parts).strip()
+
+
 class RestoreManager:
     """Orchestrates restore of a backup into Jira Cloud."""
 
@@ -212,38 +241,16 @@ class RestoreManager:
                     )
                     ok += 1
                 except JiraApiError as exc:
-                    # Retry without assignee if user can't be assigned
-                    if (
-                        exc.status_code == 400
-                        and "assignee" in payload.get("fields", {})
-                        and "cannot be assigned" in str(exc)
-                    ):
-                        payload["fields"].pop("assignee")
-                        logger.warning(
-                            "  Assignee rejected for %s — "
-                            "retrying without assignee",
-                            orig_key,
+                    # On 400, try stripping problematic fields and
+                    # retrying — handles invalid assignee, reporter,
+                    # and malformed description ADF
+                    if exc.status_code == 400:
+                        cloud_key = self._retry_with_field_fallback(
+                            payload, orig_key, fields, exc,
                         )
-                        try:
-                            result = self.client.post(
-                                "/rest/api/3/issue", payload,
-                            )
-                            cloud_key = result.get("key", "")
-                            self.progress.map_key(
-                                orig_key, cloud_key,
-                            )
-                            logger.info(
-                                "  Created: %s -> %s "
-                                "(without assignee)",
-                                orig_key, cloud_key,
-                            )
-                            self._post_metadata_comment(
-                                cloud_key, orig_key, fields,
-                            )
+                        if cloud_key:
                             ok += 1
                             continue
-                        except JiraApiError as exc2:
-                            exc = exc2
 
                     logger.error(
                         "  Failed %s: %s", orig_key, exc,
@@ -326,6 +333,89 @@ class RestoreManager:
             ]
 
         return payload
+
+    def _retry_with_field_fallback(
+        self,
+        payload: dict,
+        orig_key: str,
+        fields: dict,
+        original_exc: JiraApiError,
+    ) -> str | None:
+        """Retry issue creation after stripping rejected fields.
+
+        Handles: invalid assignee, invalid reporter, malformed
+        description ADF. Returns cloud_key on success, None on failure.
+        """
+        error_body = str(original_exc)
+        pf = payload.get("fields", {})
+        stripped = []
+
+        # Strip assignee if rejected
+        if "assignee" in pf and "assignee" in error_body:
+            pf.pop("assignee")
+            stripped.append("assignee")
+
+        # Strip reporter if rejected
+        if "reporter" in pf and "reporter" in error_body:
+            pf.pop("reporter")
+            stripped.append("reporter")
+
+        # Replace description with plain-text ADF if format rejected
+        if "description" in error_body:
+            desc_raw = fields.get("description")
+            if isinstance(desc_raw, dict):
+                # ADF was rejected — extract plain text and rebuild
+                plain = _extract_text_from_adf(desc_raw)
+                pf["description"] = text_to_adf(plain)
+                stripped.append("description(ADF->text)")
+
+        if not stripped:
+            return None
+
+        logger.warning(
+            "  Retrying %s without: %s",
+            orig_key, ", ".join(stripped),
+        )
+
+        try:
+            result = self.client.post(
+                "/rest/api/3/issue", payload,
+            )
+            cloud_key = result.get("key", "")
+            self.progress.map_key(orig_key, cloud_key)
+            logger.info(
+                "  Created: %s -> %s (fallback)",
+                orig_key, cloud_key,
+            )
+            self._post_metadata_comment(
+                cloud_key, orig_key, fields,
+            )
+            return cloud_key
+        except JiraApiError:
+            # If still failing, try one more time stripping even
+            # more fields (e.g. reporter was fine first time but
+            # assignee was the problem, now reporter also fails)
+            for field in ("assignee", "reporter"):
+                if field in pf:
+                    pf.pop(field)
+                    if field not in stripped:
+                        stripped.append(field)
+            try:
+                result = self.client.post(
+                    "/rest/api/3/issue", payload,
+                )
+                cloud_key = result.get("key", "")
+                self.progress.map_key(orig_key, cloud_key)
+                logger.info(
+                    "  Created: %s -> %s (minimal fallback)",
+                    orig_key, cloud_key,
+                )
+                self._post_metadata_comment(
+                    cloud_key, orig_key, fields,
+                )
+                return cloud_key
+            except JiraApiError:
+                return None
 
     @staticmethod
     def _build_metadata_text(
