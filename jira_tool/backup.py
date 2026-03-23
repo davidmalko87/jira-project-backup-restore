@@ -124,23 +124,22 @@ class BackupManager:
         """Paginated fetch of all issues with all fields + changelog."""
         logger.info("[+] Fetching issues...")
 
-        expand = ["changelog"] if self.config.include_changelog else []
         search_body: dict = {
             "jql": f"project = {project_key} ORDER BY created ASC",
             "fields": ["*all"],
+            "maxResults": self.config.page_size,
         }
-        if expand:
-            search_body["expand"] = expand
+        if self.config.include_changelog:
+            search_body["expand"] = "changelog"
 
         all_issues: list[dict] = []
-        start = 0
+        next_token: str | None = None
 
         while True:
-            page_body = {
-                **search_body,
-                "startAt": start,
-                "maxResults": self.config.page_size,
-            }
+            page_body = {**search_body}
+            if next_token is not None:
+                page_body["nextPageToken"] = next_token
+
             data = self.client.post(
                 "/rest/api/3/search/jql", page_body,
             )
@@ -152,9 +151,9 @@ class BackupManager:
                 "    Issues: %d / %d", len(all_issues), total,
             )
 
-            if start + self.config.page_size >= total or not batch:
+            next_token = data.get("nextPageToken")
+            if not batch or not next_token:
                 break
-            start += self.config.page_size
 
         save_json(all_issues, os.path.join(out_dir, "issues.json"))
         logger.info("[+] Total issues fetched: %d", len(all_issues))
