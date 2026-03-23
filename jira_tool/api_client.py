@@ -59,7 +59,7 @@ class JiraClient:
         """GET with retry and rate-limit handling.
 
         Args:
-            path: API path (e.g. /rest/api/2/project/KEY).
+            path: API path (e.g. /rest/api/3/project/KEY).
             params: Query parameters.
 
         Returns:

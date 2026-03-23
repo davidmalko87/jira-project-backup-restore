@@ -96,24 +96,24 @@ class BackupManager:
         """Fetch project config, components, versions, roles."""
         logger.info("[+] Project metadata...")
 
-        meta = self.client.get(f"/rest/api/2/project/{project_key}")
+        meta = self.client.get(f"/rest/api/3/project/{project_key}")
         save_json(meta, os.path.join(out_dir, "project_meta.json"))
         logger.info("    Saved project_meta.json")
 
         components = self.client.get(
-            f"/rest/api/2/project/{project_key}/components",
+            f"/rest/api/3/project/{project_key}/components",
         )
         save_json(components, os.path.join(out_dir, "components.json"))
         logger.info("    Saved components.json (%d)", len(components))
 
         versions = self.client.get(
-            f"/rest/api/2/project/{project_key}/versions",
+            f"/rest/api/3/project/{project_key}/versions",
         )
         save_json(versions, os.path.join(out_dir, "versions.json"))
         logger.info("    Saved versions.json (%d)", len(versions))
 
         roles = self.client.get(
-            f"/rest/api/2/project/{project_key}/role",
+            f"/rest/api/3/project/{project_key}/role",
         )
         save_json(roles, os.path.join(out_dir, "roles.json"))
         logger.info("    Saved roles.json")
@@ -124,25 +124,25 @@ class BackupManager:
         """Paginated fetch of all issues with all fields + changelog."""
         logger.info("[+] Fetching issues...")
 
-        expand = "changelog" if self.config.include_changelog else ""
-        params: dict = {
+        expand = ["changelog"] if self.config.include_changelog else []
+        search_body: dict = {
             "jql": f"project = {project_key} ORDER BY created ASC",
-            "fields": "*all",
+            "fields": ["*all"],
         }
         if expand:
-            params["expand"] = expand
+            search_body["expand"] = expand
 
         all_issues: list[dict] = []
         start = 0
 
         while True:
-            page_params = {
-                **params,
+            page_body = {
+                **search_body,
                 "startAt": start,
                 "maxResults": self.config.page_size,
             }
-            data = self.client.get(
-                "/rest/api/2/search", params=page_params,
+            data = self.client.post(
+                "/rest/api/3/search/jql", page_body,
             )
             batch = data.get("issues", [])
             total = data.get("total", 0)
@@ -175,7 +175,7 @@ class BackupManager:
             key = issue["key"]
             try:
                 data = self.client.get(
-                    f"/rest/api/2/issue/{key}/worklog",
+                    f"/rest/api/3/issue/{key}/worklog",
                 )
                 logs = data.get("worklogs", [])
                 if logs:
