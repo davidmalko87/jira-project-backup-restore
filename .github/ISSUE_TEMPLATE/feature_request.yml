@@ -1,0 +1,48 @@
+name: Feature Request
+description: Suggest an idea or improvement
+labels: ["enhancement"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to make the tool better? Describe it below.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Is your feature request related to a limitation or missing functionality? Describe it clearly.
+      placeholder: "e.g. When backing up large projects, there is no progress indicator so it's hard to know how long is left."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: What should the tool do differently or additionally?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you tried any workarounds or alternative approaches?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this affect?
+      options:
+        - Backup
+        - Restore
+        - Interactive menu
+        - CLI flags
+        - Configuration
+        - Performance
+        - Documentation
+        - Other
+    validations:
+      required: true
