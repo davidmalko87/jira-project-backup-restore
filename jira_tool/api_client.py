@@ -300,6 +300,7 @@ class JiraClient:
                         {"Content-Type": "application/json"}
                         if json_body is not None else None
                     ),
+                    timeout=self.config.read_timeout or None,
                 )
 
                 time.sleep(self.config.api_delay)

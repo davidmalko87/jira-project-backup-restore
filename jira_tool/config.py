@@ -30,6 +30,7 @@ class JiraConfig:
     backup_root: str = "./backups"
     page_size: int = 100
     max_retries: int = 3
+    read_timeout: int = 30  # seconds per request; 0 = no timeout
     api_delay: float = 0.2
     chunk_size: int = 8192
 
@@ -115,6 +116,7 @@ def load_config(env_path: str | None = None) -> JiraConfig:
         backup_root=os.getenv("BACKUP_ROOT", "./backups"),
         page_size=_int("PAGE_SIZE", 100),
         max_retries=_int("MAX_RETRIES", 3),
+        read_timeout=_int("READ_TIMEOUT", 30),
         api_delay=_float("API_DELAY", 0.2),
         chunk_size=_int("CHUNK_SIZE", 8192),
         include_attachments=_bool("INCLUDE_ATTACHMENTS", True),
