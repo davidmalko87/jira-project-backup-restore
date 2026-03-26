@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [1.2.4] - 2026-03-27
+
+### Fixed
+- `PermissionError` (WinError 5) on Windows when deleting incomplete backup folders (e.g. on Google Drive). The cleanup now clears read-only file attributes before removal and gracefully skips any folder that is still locked by another process (e.g. Google Drive sync), logging a warning instead of crashing.
+
+---
+
 ## [1.2.3] - 2026-03-27
 
 ### Added

@@ -10,6 +10,7 @@ Collects: project metadata, components, versions, roles, issues
 import logging
 import os
 import shutil
+import stat
 from datetime import datetime
 
 from jira_tool import __version__
@@ -18,6 +19,17 @@ from jira_tool.config import JiraConfig
 from jira_tool.utils import save_json, sanitize_filename, utc_now_iso
 
 logger = logging.getLogger("jira_tool")
+
+
+def _force_rmtree(path: str) -> None:
+    """Remove a directory tree, handling Windows read-only / permission errors."""
+    def _on_error(func, p, exc_info):
+        try:
+            os.chmod(p, stat.S_IWRITE)
+            func(p)
+        except Exception:
+            pass
+    shutil.rmtree(path, onexc=_on_error)
 
 
 class BackupManager:
@@ -140,8 +152,11 @@ class BackupManager:
         except FileNotFoundError:
             return
         for path in entries:
-            shutil.rmtree(path)
-            logger.info("[cleanup] Removed incomplete backup: %s", path)
+            try:
+                _force_rmtree(path)
+                logger.info("[cleanup] Removed incomplete backup: %s", path)
+            except Exception as exc:
+                logger.warning("[cleanup] Could not remove %s: %s", path, exc)
 
     def cleanup_all_incomplete(self) -> int:
         """Delete all incomplete backup folders across all projects.
@@ -161,9 +176,12 @@ class BackupManager:
                 os.path.isdir(path)
                 and not os.path.exists(os.path.join(path, "manifest.json"))
             ):
-                shutil.rmtree(path)
-                logger.info("[cleanup] Removed incomplete backup: %s", path)
-                removed += 1
+                try:
+                    _force_rmtree(path)
+                    logger.info("[cleanup] Removed incomplete backup: %s", path)
+                    removed += 1
+                except Exception as exc:
+                    logger.warning("[cleanup] Could not remove %s: %s", path, exc)
         if removed:
             logger.info("[cleanup] Removed %d incomplete backup(s).", removed)
         return removed
