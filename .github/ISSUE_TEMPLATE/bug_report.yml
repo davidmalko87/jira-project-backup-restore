@@ -1,0 +1,94 @@
+name: Bug Report
+description: Something isn't working as expected
+labels: ["bug"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much detail as possible.
+
+  - type: input
+    id: tool-version
+    attributes:
+      label: Tool version
+      placeholder: "e.g. 1.2.4"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "e.g. 3.12.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: How were you running the tool?
+      options:
+        - Interactive menu
+        - CLI (--backup / --restore flags)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operation
+    attributes:
+      label: Which operation failed?
+      options:
+        - Backup
+        - Restore
+        - Validate backup
+        - Cleanup incomplete backups
+        - Upload attachments
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem clearly. Include the full error message or traceback if there is one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `python main.py`
+        2. Choose option ...
+        3. Enter project key ...
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Paste the relevant section from the log file in `./backups/jira_tool_*.log`
+      render: text

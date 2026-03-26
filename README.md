@@ -6,6 +6,8 @@
 [![Jira Cloud](https://img.shields.io/badge/Jira-Cloud-0052CC.svg?logo=jira&logoColor=white)](https://www.atlassian.com/software/jira)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#)
+[![Last commit](https://img.shields.io/github/last-commit/davidmalko87/jira-project-backup-restore.svg)](https://github.com/davidmalko87/jira-project-backup-restore/commits/master)
+[![GitHub issues](https://img.shields.io/github/issues/davidmalko87/jira-project-backup-restore.svg)](https://github.com/davidmalko87/jira-project-backup-restore/issues)
 
 Backup and restore individual **Jira Cloud projects** via REST API — issues, comments, worklogs, attachments, boards, and sprints. Fully resumable, with an interactive menu and CLI mode.
 
