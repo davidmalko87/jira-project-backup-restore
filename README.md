@@ -1,6 +1,6 @@
 # Jira Project Backup & Restore
 
-[![CI](https://github.com/davidmalko87/jira-project-backup-restore/actions/workflows/ci.yml/badge.svg)](https://github.com/davidmalko87/jira-project-backup-restore/actions/workflows/ci.yml)
+[![CI](https://github.com/davidmalko87/jira-project-backup-restore/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/davidmalko87/jira-project-backup-restore/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-1.2.4-blue.svg)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![Jira Cloud](https://img.shields.io/badge/Jira-Cloud-0052CC.svg?logo=jira&logoColor=white)](https://www.atlassian.com/software/jira)
