@@ -62,11 +62,17 @@ class BackupManager:
         logger.info("[OK] Backup complete -> %s", out_dir)
         return out_dir
 
-    def backup_projects(self, project_keys: list[str]) -> list[str]:
+    def backup_projects(
+        self,
+        project_keys: list[str],
+        skip_existing: bool = False,
+    ) -> list[str]:
         """Backup multiple projects sequentially.
 
         Args:
             project_keys: List of project keys to backup.
+            skip_existing: If True, skip projects that already have a
+                complete backup (manifest.json present) in backup_root.
 
         Returns:
             List of backup directory paths.
@@ -77,6 +83,14 @@ class BackupManager:
                 "\n>>> Project %d/%d: %s",
                 i, len(project_keys), key,
             )
+            if skip_existing:
+                existing = self._find_existing_backup(key)
+                if existing:
+                    logger.info(
+                        "[SKIP] %s — backup exists: %s", key, existing,
+                    )
+                    results.append(existing)
+                    continue
             try:
                 path = self.backup_project(key)
                 results.append(path)
@@ -85,6 +99,25 @@ class BackupManager:
                     "Backup failed for %s: %s", key, exc,
                 )
         return results
+
+    def _find_existing_backup(self, project_key: str) -> str | None:
+        """Return the most-recent complete backup dir for a project, or None.
+
+        A backup is considered complete when manifest.json is present.
+        """
+        root = self.config.backup_root
+        prefix = f"{project_key}_"
+        try:
+            entries = [
+                os.path.join(root, d)
+                for d in os.listdir(root)
+                if d.startswith(prefix)
+                and os.path.isdir(os.path.join(root, d))
+                and os.path.exists(os.path.join(root, d, "manifest.json"))
+            ]
+        except FileNotFoundError:
+            return None
+        return max(entries, key=os.path.getmtime) if entries else None
 
     # ------------------------------------------------------------------
     # Internal backup steps

@@ -80,6 +80,12 @@ def _menu_backup(config: JiraConfig) -> None:
 
     keys = [k.strip().upper() for k in keys_input.split(",") if k.strip()]
     print(f"\n  Projects to backup: {', '.join(keys)}")
+
+    skip_input = input(
+        "  Skip projects with an existing complete backup? (y/n) [y]: ",
+    ).strip().lower()
+    skip_existing = skip_input != "n"
+
     confirm = input("  Proceed? (y/n): ").strip().lower()
     if confirm != "y":
         print("  Cancelled.")
@@ -90,9 +96,14 @@ def _menu_backup(config: JiraConfig) -> None:
     manager = BackupManager(client, config)
 
     if len(keys) == 1:
+        if skip_existing:
+            existing = manager._find_existing_backup(keys[0])
+            if existing:
+                print(f"  [SKIP] {keys[0]} — backup exists: {existing}")
+                return
         manager.backup_project(keys[0])
     else:
-        manager.backup_projects(keys)
+        manager.backup_projects(keys, skip_existing=skip_existing)
 
 
 def _menu_restore(config: JiraConfig) -> None:

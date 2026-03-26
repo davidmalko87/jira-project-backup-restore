@@ -50,6 +50,10 @@ def main() -> None:
         "--dry-run", action="store_true",
         help="Log actions without making API calls",
     )
+    parser.add_argument(
+        "--skip-existing", action="store_true",
+        help="Skip projects that already have a complete backup in BACKUP_ROOT",
+    )
 
     args = parser.parse_args()
 
@@ -68,9 +72,16 @@ def main() -> None:
         manager = BackupManager(client, config)
 
         if len(keys) == 1:
+            if args.skip_existing:
+                existing = manager._find_existing_backup(keys[0])
+                if existing:
+                    logger.info(
+                        "[SKIP] %s — backup exists: %s", keys[0], existing,
+                    )
+                    return
             manager.backup_project(keys[0])
         else:
-            manager.backup_projects(keys)
+            manager.backup_projects(keys, skip_existing=args.skip_existing)
         return
 
     # Non-interactive: restore
