@@ -40,6 +40,8 @@ def run_menu(config: JiraConfig) -> None:
             _menu_validate_backup(config)
         elif choice == "5":
             _menu_upload_attachments(config)
+        elif choice == "6":
+            _menu_cleanup(config)
         elif choice == "0":
             print("\nGoodbye.")
             sys.exit(0)
@@ -59,6 +61,7 @@ def _print_header(config: JiraConfig) -> None:
     print("  3) List existing backups")
     print("  4) Validate backup integrity")
     print("  5) Upload attachments only")
+    print("  6) Cleanup incomplete backups")
     print("  0) Exit")
     print()
 
@@ -279,6 +282,46 @@ def _menu_upload_attachments(config: JiraConfig) -> None:
     uploader.upload_from_backup(
         backup_dir, target_key, dry_run=dry_run,
     )
+
+
+def _menu_cleanup(config: JiraConfig) -> None:
+    """List and remove incomplete backup folders (no manifest.json)."""
+    print("\n--- Cleanup Incomplete Backups ---")
+
+    root = config.backup_root
+    if not os.path.isdir(root):
+        print("  Backup folder not found:", root)
+        return
+
+    incomplete = [
+        name
+        for name in sorted(os.listdir(root))
+        if os.path.isdir(os.path.join(root, name))
+        and not os.path.exists(os.path.join(root, name, "manifest.json"))
+    ]
+
+    if not incomplete:
+        print("  No incomplete backups found. Nothing to clean up.")
+        return
+
+    print(f"  Found {len(incomplete)} incomplete backup folder(s):\n")
+    for name in incomplete:
+        print(f"    - {name}")
+
+    print()
+    confirm = input(
+        f"  Delete all {len(incomplete)} incomplete folder(s)? (y/n): "
+    ).strip().lower()
+    if confirm != "y":
+        print("  Cancelled.")
+        return
+
+    session = build_session(config)
+    client = JiraClient(session, config.jira_url, config)
+    manager = BackupManager(client, config)
+
+    removed = manager.cleanup_all_incomplete()
+    print(f"\n  Removed {removed} incomplete backup folder(s).")
 
 
 # ------------------------------------------------------------------

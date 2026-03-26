@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [1.2.3] - 2026-03-27
+
+### Added
+- Menu option **6) Cleanup incomplete backups**: lists all folders without `manifest.json`, confirms with the user, and deletes them in one step.
+
+---
+
 ## [1.2.2] - 2026-03-27
 
 ### Added
