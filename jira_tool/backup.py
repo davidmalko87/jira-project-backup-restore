@@ -11,6 +11,7 @@ import logging
 import os
 from datetime import datetime
 
+from jira_tool import __version__
 from jira_tool.api_client import JiraApiError, JiraClient
 from jira_tool.config import JiraConfig
 from jira_tool.utils import save_json, sanitize_filename, utc_now_iso
@@ -342,7 +343,7 @@ class BackupManager:
             "project_key": project_key,
             "source_url": self.config.jira_url,
             "created_at": utc_now_iso(),
-            "tool_version": "1.0.0",
+            "tool_version": __version__,
             "files": [],
         }
 
