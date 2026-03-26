@@ -1,30 +1,45 @@
-# jira-project-backup-restore
+# Jira Project Backup & Restore
 
-Backup and restore individual Jira Cloud projects via REST API. Full project-level backup with issues, comments, worklogs, attachments, boards, and sprints — plus resumable restore into any Jira Cloud instance.
+[![Version](https://img.shields.io/badge/version-1.2.4-blue.svg)](CHANGELOG.md)
+[![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![Jira Cloud](https://img.shields.io/badge/Jira-Cloud-0052CC.svg?logo=jira&logoColor=white)](https://www.atlassian.com/software/jira)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#)
+
+Backup and restore individual **Jira Cloud projects** via REST API — issues, comments, worklogs, attachments, boards, and sprints. Fully resumable, with an interactive menu and CLI mode.
+
+---
 
 ## Why?
 
-Jira Cloud has no built-in per-project backup/restore. The only native option was the full-instance Backup Manager, which Atlassian [deprecated in March 2026](https://developer.atlassian.com/cloud/jira/platform/changelog/). This tool fills the gap using standard REST API v2/v3 endpoints.
+Jira Cloud has no built-in per-project backup/restore. The only native option was the full-instance Backup Manager, which Atlassian [deprecated in March 2026](https://developer.atlassian.com/cloud/jira/platform/changelog/). This tool fills the gap using standard REST API v3 endpoints.
+
+---
 
 ## Features
 
-- **Full project backup** — metadata, components, versions, roles, issues (all fields + changelog), worklogs, attachments, agile boards, and sprints
-- **5-phase restore** — issues (epics first, subtasks last), links, comments, worklogs, attachments
-- **Multi-project support** — backup multiple projects in one run
-- **Skip existing** — `--skip-existing` flag skips projects that already have a complete backup
-- **Auto-cleanup** — incomplete/partial backup folders are automatically removed before each run
-- **Resumable** — safely re-run after interruption; already-processed items are skipped
-- **Dry-run mode** — preview all restore actions without making API calls
-- **Rate-limit handling** — exponential backoff with 429/Retry-After detection
-- **Interactive menu** — guided workflow for backup, restore, validation, attachment upload, and cleanup
-- **CLI mode** — `--backup` / `--restore` flags for scripted or cron use
-- **Standalone attachment uploader** — for cases where issues were restored by another tool
+| | Feature | Description |
+|---|---|---|
+| | **Full project backup** | Metadata, components, versions, roles, issues (all fields + changelog), worklogs, attachments, agile boards, sprints |
+| | **5-phase restore** | Issues (epics first, subtasks last), links, comments, worklogs, attachments |
+| | **Multi-project** | Backup dozens of projects in a single run |
+| | **Skip existing** | `--skip-existing` skips projects that already have a complete backup |
+| | **Auto-cleanup** | Incomplete/partial backup folders are automatically removed before each run |
+| | **Resumable** | Safely re-run after interruption — already-processed items are skipped |
+| | **Dry-run mode** | Preview all restore actions without making any API calls |
+| | **Rate-limit aware** | Exponential backoff with `429 / Retry-After` detection |
+| | **Interactive menu** | Guided workflow for backup, restore, validation, and cleanup |
+| | **CLI mode** | `--backup` / `--restore` flags for scripted or cron use |
+
+---
 
 ## Quick Start
 
-### 1. Install dependencies
+### 1. Clone & install
 
 ```bash
+git clone https://github.com/davidmalko87/jira-project-backup-restore.git
+cd jira-project-backup-restore
 pip install -r requirements.txt
 ```
 
@@ -34,7 +49,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` with your Jira Cloud URL and API token:
+Edit `.env` with your Jira Cloud credentials:
 
 ```ini
 JIRA_URL=https://your-domain.atlassian.net
@@ -42,7 +57,7 @@ JIRA_EMAIL=you@example.com
 JIRA_API_TOKEN=your-api-token
 ```
 
-Generate an API token at: https://id.atlassian.com/manage-api-tokens
+> Generate an API token at [id.atlassian.com/manage-api-tokens](https://id.atlassian.com/manage-api-tokens)
 
 ### 3. Run
 
@@ -52,50 +67,71 @@ Generate an API token at: https://id.atlassian.com/manage-api-tokens
 python main.py
 ```
 
-**Non-interactive (backup):**
+```
+=============================================
+  Jira Backup & Restore Tool v1.2.4
+=============================================
+  Instance: https://your-domain.atlassian.net
+
+  1) Backup project(s)
+  2) Restore project from backup
+  3) List existing backups
+  4) Validate backup integrity
+  5) Upload attachments only
+  6) Cleanup incomplete backups
+  0) Exit
+```
+
+**CLI — backup:**
 
 ```bash
 python main.py --backup PROJ
 python main.py --backup PROJ1,PROJ2
-python main.py --backup PROJ1,PROJ2 --skip-existing   # skip already-backed-up projects
+python main.py --backup PROJ1,PROJ2 --skip-existing
 ```
 
-**Non-interactive (restore):**
+**CLI — restore:**
 
 ```bash
 python main.py --restore backups/PROJ_20260322_143000 --target NEWPROJ
 python main.py --restore backups/PROJ_20260322_143000 --target NEWPROJ --dry-run
 ```
 
+---
+
 ## What Gets Backed Up
 
-| Data | File | Notes |
-|---|---|---|
-| Project config | `project_meta.json` | Name, lead, category, scheme |
-| Components | `components.json` | All project components |
-| Versions | `versions.json` | All fix versions |
-| Roles | `roles.json` | Role-to-member mappings |
-| Issues | `issues.json` | All fields, changelog history |
-| Worklogs | `worklogs/worklogs.json` | Time tracking entries per issue |
-| Attachments | `attachments/<KEY>/` | Binary files, streamed to disk |
-| Boards | `boards.json` | Agile board list |
-| Board config | `board_<id>_config.json` | Columns, swimlanes |
-| Sprints | `board_<id>_sprints.json` | Sprint history |
-| Manifest | `manifest.json` | File index with metadata |
+| File | Contents |
+|---|---|
+| `project_meta.json` | Project config — name, lead, category, permission scheme |
+| `components.json` | All project components |
+| `versions.json` | All fix versions |
+| `roles.json` | Role-to-member mappings |
+| `issues.json` | All issues — every field, changelog history |
+| `worklogs/worklogs.json` | Time tracking entries per issue |
+| `attachments/<KEY>/` | Binary attachment files, streamed to disk |
+| `boards.json` | Agile board list |
+| `board_<id>_config.json` | Board columns and swimlanes |
+| `board_<id>_sprints.json` | Sprint history |
+| `manifest.json` | File index — presence marks the backup as complete |
+
+---
 
 ## Restore Phases
 
-Each phase can be toggled individually and is fully resumable:
+Each phase can be toggled individually and is fully resumable via `restore_progress.json`:
 
-| Phase | What | API |
+| Phase | What happens | Endpoint |
 |---|---|---|
-| 1 | Create issues (epics -> regular -> subtasks) | `POST /rest/api/3/issue` |
-| 2 | Restore issue links (outward-only, no duplicates) | `POST /rest/api/3/issueLink` |
-| 3 | Add comments (author + date prepended as text) | `POST /rest/api/3/issue/{key}/comment` |
-| 4 | Add worklogs (author prepended as text) | `POST /rest/api/3/issue/{key}/worklog` |
-| 5 | Upload attachments (skip duplicates by filename) | `POST /rest/api/3/issue/{key}/attachments` |
+| 1 | Create issues — epics first, then regular, then subtasks | `POST /rest/api/3/issue` |
+| 2 | Restore issue links (outward only, no duplicates) | `POST /rest/api/3/issueLink` |
+| 3 | Add comments — original author and date prepended as text | `POST /rest/api/3/issue/{key}/comment` |
+| 4 | Add worklogs — original author prepended as text | `POST /rest/api/3/issue/{key}/worklog` |
+| 5 | Upload attachments — skips duplicates by filename | `POST /rest/api/3/issue/{key}/attachments` |
 
-Progress is tracked in `key_mapping.json` and `restore_progress.json` inside the backup directory.
+Issue key mapping between source and target is saved in `key_mapping.json` inside the backup directory.
+
+---
 
 ## Known Limitations
 
@@ -103,76 +139,77 @@ These are Jira Cloud REST API constraints — not tool limitations:
 
 | Data | Status | Notes |
 |---|---|---|
-| Timestamps (created/updated) | Not restorable | Cloud blocks setting these fields |
-| Changelog / history | Backup only | No import endpoint exists |
+| Timestamps (created/updated) | Not restorable | Cloud API blocks setting these fields |
+| Changelog / history | Backup only | No write endpoint exists |
 | Comment / worklog author | Text attribution | `[Originally by Name on Date]` prepended |
-| Reporter / Assignee | Conditional | Restored only if user email matches in Cloud |
-| Issue status | Resets to default | Transitions phase planned for future |
-| Issue keys (e.g. KEY-123) | Reassigned | Cloud assigns new keys; mapping saved |
+| Reporter / Assignee | Conditional | Restored only if the user's email exists in the target instance |
+| Issue status | Resets to default | Workflow transitions not yet automated |
+| Issue keys (e.g. `KEY-123`) | Reassigned | Cloud assigns new keys; old→new mapping is saved |
+
+---
 
 ## Project Structure
 
 ```
-jira-backup-restore/
-├── main.py                   # Entry point (menu + CLI)
+jira-project-backup-restore/
+├── main.py                   # Entry point — interactive menu + CLI flags
 ├── .env.example              # Configuration template
 ├── requirements.txt          # Python dependencies
 │
 ├── jira_tool/
-│   ├── config.py             # .env loader + validation
-│   ├── auth.py               # Session builder (token / cookie auth)
-│   ├── api_client.py         # HTTP client with retry + rate limiting
-│   ├── backup.py             # BackupManager
-│   ├── restore.py            # RestoreManager (5-phase)
+│   ├── config.py             # .env loader and validation
+│   ├── auth.py               # Session builder (API token / cookie auth)
+│   ├── api_client.py         # HTTP client with retry and rate-limit handling
+│   ├── backup.py             # BackupManager — orchestrates full project backup
+│   ├── restore.py            # RestoreManager — 5-phase restore
 │   ├── attachments.py        # Standalone attachment uploader
 │   ├── adf.py                # Atlassian Document Format helpers
 │   ├── progress.py           # Resumability tracker
 │   ├── utils.py              # Logging, JSON I/O, utilities
 │   └── menu.py               # Interactive CLI menu
 │
-└── backups/                  # Backup output (gitignored)
+└── backups/                  # Backup output directory (gitignored)
+    └── PROJ_20260322_143000/
+        ├── manifest.json     # Completion marker + file index
+        ├── issues.json
+        ├── attachments/
+        └── ...
 ```
+
+---
 
 ## Configuration Reference
 
-All settings are in `.env`:
+All settings live in `.env` (copy from `.env.example`):
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `JIRA_URL` | Yes | — | Jira Cloud URL (no trailing slash) |
-| `JIRA_EMAIL` | Yes* | — | Email for API token auth |
-| `JIRA_API_TOKEN` | Yes* | — | API token ([generate here](https://id.atlassian.com/manage-api-tokens)) |
-| `JIRA_COOKIE_HEADER` | Alt* | — | Cookie auth for SSO (alternative to token) |
-| `JIRA_VERIFY_SSL` | No | `true` | Set `false` for self-signed certs |
-| `BACKUP_ROOT` | No | `./backups` | Backup output directory |
+| `JIRA_URL` | Yes | — | Jira Cloud base URL (no trailing slash) |
+| `JIRA_EMAIL` | Yes* | — | Account email for API token auth |
+| `JIRA_API_TOKEN` | Yes* | — | API token — [generate here](https://id.atlassian.com/manage-api-tokens) |
+| `JIRA_COOKIE_HEADER` | Alt* | — | Full `Cookie:` header value for SSO auth |
+| `JIRA_VERIFY_SSL` | No | `true` | Set `false` to skip SSL verification |
+| `BACKUP_ROOT` | No | `./backups` | Directory where backups are written |
 | `PAGE_SIZE` | No | `100` | Issues per API page (max 100) |
-| `MAX_RETRIES` | No | `3` | Retry count for failed requests |
+| `MAX_RETRIES` | No | `3` | Retry count on transient failures |
 | `READ_TIMEOUT` | No | `30` | HTTP read timeout in seconds |
-| `API_DELAY` | No | `0.2` | Seconds between API calls |
-| `INCLUDE_ATTACHMENTS` | No | `true` | Download attachment files |
-| `INCLUDE_CHANGELOG` | No | `true` | Include field change history |
-| `INCLUDE_WORKLOGS` | No | `true` | Include time tracking |
-| `LEGACY_KEY_JQL_TEMPLATE` | No | — | JQL for standalone attachment upload |
+| `API_DELAY` | No | `0.2` | Seconds to wait between API calls |
+| `INCLUDE_ATTACHMENTS` | No | `true` | Download attachment binary files |
+| `INCLUDE_CHANGELOG` | No | `true` | Include field change history in issues |
+| `INCLUDE_WORKLOGS` | No | `true` | Include time tracking entries |
+| `LEGACY_KEY_JQL_TEMPLATE` | No | — | JQL template for standalone attachment upload |
 
-\* Either `JIRA_EMAIL` + `JIRA_API_TOKEN` or `JIRA_COOKIE_HEADER` is required.
+> \* Either `JIRA_EMAIL` + `JIRA_API_TOKEN` **or** `JIRA_COOKIE_HEADER` is required.
 
-## Interactive Menu
-
-| Option | Description |
-|---|---|
-| 1 | Backup one or more projects |
-| 2 | Restore a project from backup |
-| 3 | List all existing backups |
-| 4 | Validate backup integrity (checks files against manifest) |
-| 5 | Upload attachments only |
-| 6 | Cleanup incomplete backups (remove folders with no manifest) |
-| 0 | Exit |
+---
 
 ## Requirements
 
-- Python 3.10+
-- `requests` >= 2.28
-- `python-dotenv` >= 1.0
+- Python **3.10+**
+- [`requests`](https://pypi.org/project/requests/) >= 2.28
+- [`python-dotenv`](https://pypi.org/project/python-dotenv/) >= 1.0
+
+---
 
 ## Changelog
 
@@ -184,4 +221,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the versioning policy and how to bump
 
 ## License
 
-MIT
+[MIT](LICENSE)
