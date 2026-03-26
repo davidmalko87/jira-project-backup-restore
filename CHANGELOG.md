@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [1.2.2] - 2026-03-27
+
+### Added
+- Automatic cleanup of incomplete backup folders (no `manifest.json`) before each backup run.
+  - Per-project: incomplete folders for the target project are deleted before a new backup starts.
+  - Global: all incomplete folders across all projects are removed at the start of a multi-project backup run.
+- `cleanup_all_incomplete()` public method on `BackupManager` for programmatic use.
+
+---
+
 ## [1.2.1] - 2026-03-26
 
 ### Fixed

@@ -9,6 +9,7 @@ Collects: project metadata, components, versions, roles, issues
 
 import logging
 import os
+import shutil
 from datetime import datetime
 
 from jira_tool import __version__
@@ -35,6 +36,8 @@ class BackupManager:
         Returns:
             Path to the backup directory.
         """
+        self._cleanup_incomplete_backups(project_key)
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         out_dir = os.path.join(
             self.config.backup_root,
@@ -78,6 +81,8 @@ class BackupManager:
         Returns:
             List of backup directory paths.
         """
+        self.cleanup_all_incomplete()
+
         results: list[str] = []
         for i, key in enumerate(project_keys, 1):
             logger.info(
@@ -119,6 +124,49 @@ class BackupManager:
         except FileNotFoundError:
             return None
         return max(entries, key=os.path.getmtime) if entries else None
+
+    def _cleanup_incomplete_backups(self, project_key: str) -> None:
+        """Delete all incomplete backup folders (no manifest.json) for a project."""
+        root = self.config.backup_root
+        prefix = f"{project_key}_"
+        try:
+            entries = [
+                os.path.join(root, d)
+                for d in os.listdir(root)
+                if d.startswith(prefix)
+                and os.path.isdir(os.path.join(root, d))
+                and not os.path.exists(os.path.join(root, d, "manifest.json"))
+            ]
+        except FileNotFoundError:
+            return
+        for path in entries:
+            shutil.rmtree(path)
+            logger.info("[cleanup] Removed incomplete backup: %s", path)
+
+    def cleanup_all_incomplete(self) -> int:
+        """Delete all incomplete backup folders across all projects.
+
+        Returns:
+            Number of folders removed.
+        """
+        root = self.config.backup_root
+        removed = 0
+        try:
+            entries = os.listdir(root)
+        except FileNotFoundError:
+            return 0
+        for name in entries:
+            path = os.path.join(root, name)
+            if (
+                os.path.isdir(path)
+                and not os.path.exists(os.path.join(path, "manifest.json"))
+            ):
+                shutil.rmtree(path)
+                logger.info("[cleanup] Removed incomplete backup: %s", path)
+                removed += 1
+        if removed:
+            logger.info("[cleanup] Removed %d incomplete backup(s).", removed)
+        return removed
 
     # ------------------------------------------------------------------
     # Internal backup steps
