@@ -11,10 +11,12 @@ Jira Cloud has no built-in per-project backup/restore. The only native option wa
 - **Full project backup** — metadata, components, versions, roles, issues (all fields + changelog), worklogs, attachments, agile boards, and sprints
 - **5-phase restore** — issues (epics first, subtasks last), links, comments, worklogs, attachments
 - **Multi-project support** — backup multiple projects in one run
+- **Skip existing** — `--skip-existing` flag skips projects that already have a complete backup
+- **Auto-cleanup** — incomplete/partial backup folders are automatically removed before each run
 - **Resumable** — safely re-run after interruption; already-processed items are skipped
 - **Dry-run mode** — preview all restore actions without making API calls
 - **Rate-limit handling** — exponential backoff with 429/Retry-After detection
-- **Interactive menu** — guided workflow for backup, restore, validation, and attachment upload
+- **Interactive menu** — guided workflow for backup, restore, validation, attachment upload, and cleanup
 - **CLI mode** — `--backup` / `--restore` flags for scripted or cron use
 - **Standalone attachment uploader** — for cases where issues were restored by another tool
 
@@ -55,6 +57,7 @@ python main.py
 ```bash
 python main.py --backup PROJ
 python main.py --backup PROJ1,PROJ2
+python main.py --backup PROJ1,PROJ2 --skip-existing   # skip already-backed-up projects
 ```
 
 **Non-interactive (restore):**
@@ -144,6 +147,7 @@ All settings are in `.env`:
 | `BACKUP_ROOT` | No | `./backups` | Backup output directory |
 | `PAGE_SIZE` | No | `100` | Issues per API page (max 100) |
 | `MAX_RETRIES` | No | `3` | Retry count for failed requests |
+| `READ_TIMEOUT` | No | `30` | HTTP read timeout in seconds |
 | `API_DELAY` | No | `0.2` | Seconds between API calls |
 | `INCLUDE_ATTACHMENTS` | No | `true` | Download attachment files |
 | `INCLUDE_CHANGELOG` | No | `true` | Include field change history |
@@ -152,11 +156,31 @@ All settings are in `.env`:
 
 \* Either `JIRA_EMAIL` + `JIRA_API_TOKEN` or `JIRA_COOKIE_HEADER` is required.
 
+## Interactive Menu
+
+| Option | Description |
+|---|---|
+| 1 | Backup one or more projects |
+| 2 | Restore a project from backup |
+| 3 | List all existing backups |
+| 4 | Validate backup integrity (checks files against manifest) |
+| 5 | Upload attachments only |
+| 6 | Cleanup incomplete backups (remove folders with no manifest) |
+| 0 | Exit |
+
 ## Requirements
 
 - Python 3.10+
 - `requests` >= 2.28
 - `python-dotenv` >= 1.0
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the full version history.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the versioning policy and how to bump the version when making changes.
 
 ## License
 
