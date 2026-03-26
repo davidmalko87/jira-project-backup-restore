@@ -18,18 +18,18 @@ Jira Cloud has no built-in per-project backup/restore. The only native option wa
 
 ## Features
 
-| | Feature | Description |
-|---|---|---|
-| | **Full project backup** | Metadata, components, versions, roles, issues (all fields + changelog), worklogs, attachments, agile boards, sprints |
-| | **5-phase restore** | Issues (epics first, subtasks last), links, comments, worklogs, attachments |
-| | **Multi-project** | Backup dozens of projects in a single run |
-| | **Skip existing** | `--skip-existing` skips projects that already have a complete backup |
-| | **Auto-cleanup** | Incomplete/partial backup folders are automatically removed before each run |
-| | **Resumable** | Safely re-run after interruption — already-processed items are skipped |
-| | **Dry-run mode** | Preview all restore actions without making any API calls |
-| | **Rate-limit aware** | Exponential backoff with `429 / Retry-After` detection |
-| | **Interactive menu** | Guided workflow for backup, restore, validation, and cleanup |
-| | **CLI mode** | `--backup` / `--restore` flags for scripted or cron use |
+| Feature | Description |
+|---|---|
+| **Full project backup** | Metadata, components, versions, roles, issues (all fields + changelog), worklogs, attachments, agile boards, sprints |
+| **5-phase restore** | Issues (epics first, subtasks last), links, comments, worklogs, attachments |
+| **Multi-project** | Backup dozens of projects in a single run |
+| **Skip existing** | `--skip-existing` skips projects that already have a complete backup |
+| **Auto-cleanup** | Incomplete/partial backup folders are automatically removed before each run |
+| **Resumable** | Safely re-run after interruption — already-processed items are skipped |
+| **Dry-run mode** | Preview all restore actions without making any API calls |
+| **Rate-limit aware** | Exponential backoff with `429 / Retry-After` detection |
+| **Interactive menu** | Guided workflow for backup, restore, validation, and cleanup |
+| **CLI mode** | `--backup` / `--restore` flags for scripted or cron use |
 
 ---
 
