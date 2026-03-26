@@ -158,7 +158,7 @@ class BackupManager:
         logger.info("[+] Fetching issues...")
 
         search_body: dict = {
-            "jql": f"project = {project_key} ORDER BY created ASC",
+            "jql": f'project = "{project_key}" ORDER BY created ASC',
             "fields": ["*all"],
             "maxResults": self.config.page_size,
         }
