@@ -8,14 +8,12 @@
 import logging
 import os
 import time
-from typing import Any
 
 import requests
 from requests.exceptions import (
     ChunkedEncodingError,
     ConnectionError,
     ReadTimeout,
-    RequestException,
 )
 
 from jira_tool.config import JiraConfig

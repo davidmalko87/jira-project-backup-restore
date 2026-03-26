@@ -9,7 +9,7 @@ All credentials and tunables are centralized here.
 
 import os
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
