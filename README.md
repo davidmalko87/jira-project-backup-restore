@@ -1,8 +1,9 @@
 # Jira Project Backup & Restore
 
 [![CI](https://github.com/davidmalko87/jira-project-backup-restore/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/davidmalko87/jira-project-backup-restore/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-1.2.4-blue.svg)](CHANGELOG.md)
-[![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![PyPI version](https://img.shields.io/pypi/v/jira-project-backup-restore.svg)](https://pypi.org/project/jira-project-backup-restore/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/jira-project-backup-restore.svg)](https://pypi.org/project/jira-project-backup-restore/)
+[![Python](https://img.shields.io/pypi/pyversions/jira-project-backup-restore.svg?logo=python&logoColor=white)](https://pypi.org/project/jira-project-backup-restore/)
 [![Jira Cloud](https://img.shields.io/badge/Jira-Cloud-0052CC.svg?logo=jira&logoColor=white)](https://www.atlassian.com/software/jira)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#)
@@ -38,7 +39,15 @@ Jira Cloud has no built-in per-project backup/restore. The only native option wa
 
 ## Quick Start
 
-### 1. Clone & install
+### 1. Install
+
+**Via PyPI (recommended):**
+
+```bash
+pip install jira-project-backup-restore
+```
+
+**Or clone for development:**
 
 ```bash
 git clone https://github.com/davidmalko87/jira-project-backup-restore.git
