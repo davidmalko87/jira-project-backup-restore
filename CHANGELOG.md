@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [1.2.5] - 2026-03-27
+
+### Fixed
+- Fixed deprecated `pyproject.toml` license table format — changed to SPDX string (`license = "MIT"`) and removed deprecated license classifier, resolving setuptools deprecation warnings during build.
+
+---
+
 ## [1.2.4] - 2026-03-27
 
 ### Fixed
