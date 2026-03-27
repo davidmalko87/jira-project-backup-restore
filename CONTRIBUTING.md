@@ -27,3 +27,39 @@ This project uses [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH
    ```
 
 Both files must be updated together in the same commit as the change that warrants the bump.
+
+---
+
+## Publishing a Release
+
+Follow these steps in order every time a new version is ready:
+
+### 1. Bump the version and update docs
+- `jira_tool/__init__.py` — update `__version__`
+- `CHANGELOG.md` — add a new entry at the top
+- `README.md` — badges auto-update from PyPI, no manual change needed
+
+### 2. Commit and push
+```bash
+git add jira_tool/__init__.py CHANGELOG.md
+git commit -m "Bump version to X.Y.Z"
+git push
+```
+
+### 3. Create a GitHub Release
+- Go to **Releases → Create a new release**
+- Tag: `vX.Y.Z`
+- Title: `vX.Y.Z`
+- Body: paste the new section from `CHANGELOG.md`
+- Click **Publish release**
+
+### 4. Build and upload to PyPI
+```bash
+pip install --upgrade build twine
+python -m build
+python -m twine upload dist/*
+```
+
+Enter your PyPI API token when prompted.
+
+> The PyPI version badge in the README updates automatically within a few minutes of upload.
