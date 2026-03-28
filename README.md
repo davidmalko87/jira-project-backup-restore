@@ -81,7 +81,7 @@ python main.py
 
 ```
 =============================================
-  Jira Backup & Restore Tool v1.2.6
+  Jira Backup & Restore Tool v1.2.7
 =============================================
   Instance: https://your-domain.atlassian.net
 

@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [1.2.7] - 2026-03-28
+
+### Fixed
+- Add missing `jira_tool/cli.py` entry point — the `jira-backup` console script (installed via pip) was broken because `pyproject.toml` referenced `jira_tool.cli:main` but the module did not exist.
+- Sync `__init__.py` version with `pyproject.toml` (was stuck at 1.2.5).
+- Update interactive menu banner and README to show the correct version.
+
+---
+
 ## [1.2.6] - 2026-03-27
 
 ### Changed
