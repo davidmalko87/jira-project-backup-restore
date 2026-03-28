@@ -1,5 +1,3 @@
-<meta name="google-site-verification" content="Zscjw3cyJaxgJs2tEQ6U-tpEPnw69cTu8c5D7urjoyg" />
-
 # Jira Project Backup & Restore
 
 [![CI](https://github.com/davidmalko87/jira-project-backup-restore/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/davidmalko87/jira-project-backup-restore/actions/workflows/ci.yml)
