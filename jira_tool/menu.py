@@ -496,25 +496,25 @@ def _menu_show_config(config: JiraConfig) -> None:
     """Display current configuration settings."""
     print("\n--- Current Configuration ---")
     auth = "API Token" if config.api_token else "Cookie"
-    print(f"\n  Jira Instance")
+    print("\n  Jira Instance")
     print(f"    URL            : {config.jira_url}")
     print(f"    Email          : {config.email or '(not set)'}")
     print(f"    Auth method    : {auth}")
     print(f"    SSL verify     : {config.verify_ssl}")
-    print(f"\n  Backup Settings")
+    print("\n  Backup Settings")
     print(f"    Backup root    : {os.path.abspath(config.backup_root)}")
     print(f"    Page size      : {config.page_size}")
     print(f"    Max retries    : {config.max_retries}")
     print(f"    Read timeout   : {config.read_timeout}s")
     print(f"    API delay      : {config.api_delay}s")
     print(f"    Chunk size     : {format_size(config.chunk_size)}")
-    print(f"\n  Data Toggles")
+    print("\n  Data Toggles")
     print(f"    Attachments    : {'Enabled' if config.include_attachments else 'Disabled'}")
     print(f"    Changelog      : {'Enabled' if config.include_changelog else 'Disabled'}")
     print(f"    Worklogs       : {'Enabled' if config.include_worklogs else 'Disabled'}")
 
     if config.legacy_key_jql_template:
-        print(f"\n  Legacy")
+        print("\n  Legacy")
         print(f"    JQL template   : {config.legacy_key_jql_template}")
 
     _pause()
@@ -659,7 +659,7 @@ def _print_backup_summary(backup_dir: str) -> None:
     """Print summary statistics after a backup completes."""
     stats = get_backup_statistics(backup_dir)
     print(f"\n  {'─' * 40}")
-    print(f"  Backup Summary")
+    print("  Backup Summary")
     print(f"  {'─' * 40}")
     print(f"    Issues       : {stats['issue_count']}")
     print(f"    Comments     : {stats['comment_count']}")
@@ -670,7 +670,7 @@ def _print_backup_summary(backup_dir: str) -> None:
     print(f"    Total size   : {format_size(stats['total_size_bytes'])}")
 
     if stats["type_counts"]:
-        print(f"\n    Issue types:")
+        print("\n    Issue types:")
         for itype, count in stats["type_counts"].most_common():
             print(f"      {itype:<20} {count:>5}")
 
@@ -691,7 +691,7 @@ def _print_detailed_stats(backup_dir: str) -> None:
     stats = get_backup_statistics(backup_dir)
 
     print(f"\n  {'─' * 45}")
-    print(f"  Overview")
+    print("  Overview")
     print(f"  {'─' * 45}")
     print(f"    Total issues     : {stats['issue_count']}")
     print(f"    Total comments   : {stats['comment_count']}")
@@ -703,7 +703,7 @@ def _print_detailed_stats(backup_dir: str) -> None:
 
     if stats["type_counts"]:
         print(f"\n  {'─' * 45}")
-        print(f"  Issue Types")
+        print("  Issue Types")
         print(f"  {'─' * 45}")
         for itype, count in stats["type_counts"].most_common():
             bar = "#" * min(count, 30)
@@ -711,7 +711,7 @@ def _print_detailed_stats(backup_dir: str) -> None:
 
     if stats["status_counts"]:
         print(f"\n  {'─' * 45}")
-        print(f"  Issue Statuses")
+        print("  Issue Statuses")
         print(f"  {'─' * 45}")
         for status, count in stats["status_counts"].most_common():
             bar = "#" * min(count, 30)
@@ -719,14 +719,14 @@ def _print_detailed_stats(backup_dir: str) -> None:
 
     if stats["priority_counts"]:
         print(f"\n  {'─' * 45}")
-        print(f"  Priorities")
+        print("  Priorities")
         print(f"  {'─' * 45}")
         for priority, count in stats["priority_counts"].most_common():
             print(f"    {priority:<20} {count:>5}")
 
     if stats["assignees"]:
         print(f"\n  {'─' * 45}")
-        print(f"  Top Assignees")
+        print("  Top Assignees")
         print(f"  {'─' * 45}")
         for assignee, count in stats["assignees"].most_common(10):
             print(f"    {assignee:<30} {count:>5}")
