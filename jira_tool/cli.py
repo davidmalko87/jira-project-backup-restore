@@ -14,6 +14,7 @@ from jira_tool.api_client import JiraClient
 from jira_tool.auth import build_session
 from jira_tool.backup import BackupManager
 from jira_tool.config import load_config
+from jira_tool.export import export_backup_to_csv
 from jira_tool.menu import run_menu
 from jira_tool.progress import ProgressTracker
 from jira_tool.restore import RestoreManager
@@ -49,11 +50,36 @@ def main() -> None:
         "--skip-existing", action="store_true",
         help="Skip projects that already have a complete backup in BACKUP_ROOT",
     )
+    parser.add_argument(
+        "--export-csv",
+        help="Export backup directory to CSV files (non-interactive)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        help="Output directory for CSV export (default: <backup>/csv_export)",
+    )
 
     args = parser.parse_args()
 
     config = load_config(args.env)
     logger = setup_logging(log_dir=config.backup_root)
+
+    # Non-interactive: CSV export
+    if args.export_csv:
+        import os
+        backup_dir = args.export_csv
+        if not os.path.isdir(backup_dir):
+            print(f"[!] Backup directory not found: {backup_dir}")
+            sys.exit(1)
+        output_dir = args.output_dir or os.path.join(
+            backup_dir, "csv_export",
+        )
+        results = export_backup_to_csv(backup_dir, output_dir)
+        print(f"\nExport complete — {len(results)} CSV file(s):")
+        for filename, count in results.items():
+            print(f"  {filename}: {count} rows")
+        print(f"\nOutput: {output_dir}")
+        return
 
     # Non-interactive: backup
     if args.backup:
