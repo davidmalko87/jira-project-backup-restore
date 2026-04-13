@@ -32,8 +32,11 @@ Jira Cloud has no built-in per-project backup/restore. The only native option wa
 | **Resumable** | Safely re-run after interruption — already-processed items are skipped |
 | **Dry-run mode** | Preview all restore actions without making any API calls |
 | **Rate-limit aware** | Exponential backoff with `429 / Retry-After` detection |
-| **Interactive menu** | Guided workflow for backup, restore, validation, and cleanup |
-| **CLI mode** | `--backup` / `--restore` flags for scripted or cron use |
+| **CSV export** | Export backup data to CSV files for reporting, auditing, and sharing |
+| **Backup inspection** | Detailed breakdown of issue types, statuses, priorities, and assignees |
+| **Connection test** | Pre-flight check: authentication, project access, and server info |
+| **Interactive menu** | Guided workflow with organised sections and post-operation summaries |
+| **CLI mode** | `--backup` / `--restore` / `--export-csv` flags for scripted or cron use |
 
 ---
 
@@ -80,17 +83,28 @@ python main.py
 ```
 
 ```
-=============================================
-  Jira Backup & Restore Tool v1.2.7
-=============================================
-  Instance: https://your-domain.atlassian.net
+==================================================
+  Jira Backup & Restore Tool v1.3.0
+==================================================
+  Instance : https://your-domain.atlassian.net
+  Auth     : API Token
+  Backups  : ./backups
 
+  --- Backup & Restore ---
   1) Backup project(s)
   2) Restore project from backup
+
+  --- Browse & Analyze ---
   3) List existing backups
   4) Validate backup integrity
   5) Upload attachments only
-  6) Cleanup incomplete backups
+  6) Export backup to CSV
+  7) Inspect backup details
+
+  --- Settings & Tools ---
+  8) Test Jira connection
+  9) Show current configuration
+  10) Cleanup incomplete backups
   0) Exit
 ```
 
@@ -107,6 +121,13 @@ python main.py --backup PROJ1,PROJ2 --skip-existing
 ```bash
 python main.py --restore backups/PROJ_20260322_143000 --target NEWPROJ
 python main.py --restore backups/PROJ_20260322_143000 --target NEWPROJ --dry-run
+```
+
+**CLI — export to CSV:**
+
+```bash
+python main.py --export-csv backups/PROJ_20260322_143000
+python main.py --export-csv backups/PROJ_20260322_143000 --output-dir /tmp/report
 ```
 
 ---
@@ -174,10 +195,12 @@ jira-project-backup-restore/
 │   ├── api_client.py         # HTTP client with retry and rate-limit handling
 │   ├── backup.py             # BackupManager — orchestrates full project backup
 │   ├── restore.py            # RestoreManager — 5-phase restore
+│   ├── export.py             # CSV export and backup statistics
 │   ├── attachments.py        # Standalone attachment uploader
 │   ├── adf.py                # Atlassian Document Format helpers
 │   ├── progress.py           # Resumability tracker
 │   ├── utils.py              # Logging, JSON I/O, utilities
+│   ├── cli.py                # Console-script entry point
 │   └── menu.py               # Interactive CLI menu
 │
 └── backups/                  # Backup output directory (gitignored)

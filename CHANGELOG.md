@@ -6,6 +6,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [1.3.0] - 2026-04-13
+
+### Added
+- **Export backup to CSV** — new menu option and `--export-csv` CLI flag to export issues, comments, worklogs, components, and versions to CSV files for reporting and analysis outside of Jira.
+- **Inspect backup details** — new menu option showing detailed breakdown of issue types, statuses, priorities, and top assignees with visual bar charts.
+- **Test Jira connection** — new menu option that runs a 3-step pre-flight check: authentication, project access, and server info.
+- **Show current configuration** — new menu option to review all active settings without opening the `.env` file.
+- **Post-backup summary** — after each backup completes, a summary is displayed with issue, comment, attachment, worklog, component, and version counts plus total disk size.
+- **`--output-dir`** CLI flag to control the CSV export output directory.
+- New `jira_tool/export.py` module with CSV export and backup statistics/analysis functions.
+
+### Changed
+- Reorganised interactive menu into three logical sections: *Backup & Restore*, *Browse & Analyze*, and *Settings & Tools* (now 10 options, up from 6).
+- Backup listing now shows disk size per backup and total size across all backups.
+- All menu operations now pause with "Press Enter to return to menu" before returning.
+- Backup selection prompts now accept `b` to go back without selecting.
+- Restore confirmation now displays which phases are selected before proceeding.
+- Menu header now shows authentication method and backup directory path.
+
+---
+
 ## [1.2.7] - 2026-03-28
 
 ### Fixed
