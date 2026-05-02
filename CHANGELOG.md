@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [1.3.1] - 2026-05-02
+
+### Fixed
+- **Memory exhaustion on large projects** ([#25](https://github.com/davidmalko87/jira-project-backup-restore/issues/25)) — `_backup_issues` previously buffered every issue in memory before writing `issues.json`, which could OOM-kill the process on small hosts when backing up projects with thousands of issues (e.g. 18k+ issues on a 1 GB RAM box). Issues are now streamed page-by-page directly to disk, keeping RAM usage flat regardless of project size. Only a lightweight per-issue summary (key + attachment list) is retained in memory for the downstream worklog and attachment phases. Thanks to [@LexPS75](https://github.com/LexPS75) for the report and proposed fix.
+
+---
+
 ## [1.3.0] - 2026-04-13
 
 ### Added

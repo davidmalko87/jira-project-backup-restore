@@ -7,6 +7,7 @@ Collects: project metadata, components, versions, roles, issues
 (with changelog), worklogs, attachments, and agile board config.
 """
 
+import json
 import logging
 import os
 import shutil
@@ -221,8 +222,15 @@ class BackupManager:
     def _backup_issues(
         self, project_key: str, out_dir: str,
     ) -> list[dict]:
-        """Paginated fetch of all issues with all fields + changelog."""
-        logger.info("[+] Fetching issues...")
+        """Paginated fetch of all issues, streaming each page directly to disk.
+
+        Issues are written to issues.json as they arrive rather than buffered
+        in memory, which keeps RAM usage flat regardless of project size.
+        Returns a lite list (key + attachment field only) so downstream
+        worklog and attachment phases can iterate without loading the full
+        issues.json back into memory.
+        """
+        logger.info("[+] Fetching issues (streaming to disk)...")
 
         search_body: dict = {
             "jql": f'project = "{project_key}" ORDER BY created ASC',
@@ -232,32 +240,57 @@ class BackupManager:
         if self.config.include_changelog:
             search_body["expand"] = "changelog"
 
-        all_issues: list[dict] = []
+        issues_path = os.path.join(out_dir, "issues.json")
+        lite_issues: list[dict] = []
         next_token: str | None = None
+        is_first = True
+        total_fetched = 0
 
-        while True:
-            page_body = {**search_body}
-            if next_token is not None:
-                page_body["nextPageToken"] = next_token
+        with open(issues_path, "w", encoding="utf-8") as f:
+            f.write("[\n")
 
-            data = self.client.post(
-                "/rest/api/3/search/jql", page_body,
-            )
-            batch = data.get("issues", [])
-            total = data.get("total", 0)
-            all_issues.extend(batch)
+            while True:
+                page_body = {**search_body}
+                if next_token is not None:
+                    page_body["nextPageToken"] = next_token
 
-            logger.info(
-                "    Issues: %d / %d", len(all_issues), total,
-            )
+                data = self.client.post(
+                    "/rest/api/3/search/jql", page_body,
+                )
+                batch = data.get("issues", [])
+                total = data.get("total", 0)
 
-            next_token = data.get("nextPageToken")
-            if not batch or not next_token:
-                break
+                for issue in batch:
+                    if not is_first:
+                        f.write(",\n")
+                    json.dump(issue, f, ensure_ascii=False)
+                    is_first = False
 
-        save_json(all_issues, os.path.join(out_dir, "issues.json"))
-        logger.info("[+] Total issues fetched: %d", len(all_issues))
-        return all_issues
+                    # Keep only fields needed for downstream phases
+                    # (worklogs uses key; attachments uses key + attachment)
+                    lite_issues.append({
+                        "key": issue["key"],
+                        "fields": {
+                            "attachment": (
+                                (issue.get("fields") or {})
+                                .get("attachment") or []
+                            ),
+                        },
+                    })
+
+                total_fetched += len(batch)
+                logger.info(
+                    "    Issues: %d / %d", total_fetched, total,
+                )
+
+                next_token = data.get("nextPageToken")
+                if not batch or not next_token:
+                    break
+
+            f.write("\n]")
+
+        logger.info("[+] Total issues fetched: %d", total_fetched)
+        return lite_issues
 
     def _backup_worklogs(
         self, issues: list[dict], out_dir: str,

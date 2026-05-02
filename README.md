@@ -30,6 +30,7 @@ Jira Cloud has no built-in per-project backup/restore. The only native option wa
 | **Skip existing** | `--skip-existing` skips projects that already have a complete backup |
 | **Auto-cleanup** | Incomplete/partial backup folders are automatically removed before each run |
 | **Resumable** | Safely re-run after interruption — already-processed items are skipped |
+| **Memory efficient** | Issues stream directly to disk — backup 18 000+ issues on a 1 GB host without OOM |
 | **Dry-run mode** | Preview all restore actions without making any API calls |
 | **Rate-limit aware** | Exponential backoff with `429 / Retry-After` detection |
 | **CSV export** | Export backup data to CSV files for reporting, auditing, and sharing |
@@ -84,7 +85,7 @@ python main.py
 
 ```
 ==================================================
-  Jira Backup & Restore Tool v1.3.0
+  Jira Backup & Restore Tool v1.3.1
 ==================================================
   Instance : https://your-domain.atlassian.net
   Auth     : API Token
