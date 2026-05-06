@@ -12,6 +12,7 @@ import logging
 import os
 import shutil
 import stat
+import sys
 from datetime import datetime
 
 from jira_tool import __version__
@@ -30,7 +31,10 @@ def _force_rmtree(path: str) -> None:
             func(p)
         except Exception:
             pass
-    shutil.rmtree(path, onexc=_on_error)
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=_on_error)
+    else:
+        shutil.rmtree(path, onerror=_on_error)
 
 
 class BackupManager:
@@ -302,8 +306,9 @@ class BackupManager:
         os.makedirs(worklog_dir, exist_ok=True)
 
         all_worklogs: dict[str, list] = {}
+        total_issues = len(issues)
 
-        for issue in issues:
+        for i, issue in enumerate(issues, 1):
             key = issue["key"]
             try:
                 data = self.client.get(
@@ -315,6 +320,12 @@ class BackupManager:
             except JiraApiError as exc:
                 logger.warning(
                     "    Worklog fetch failed for %s: %s", key, exc,
+                )
+
+            if i % 100 == 0 or i == total_issues:
+                logger.info(
+                    "    Worklogs: %d / %d checked (%d with entries)",
+                    i, total_issues, len(all_worklogs),
                 )
 
         save_json(
