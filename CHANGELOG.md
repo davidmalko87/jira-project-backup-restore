@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [1.3.2] - 2026-05-06
+
+### Fixed
+- **Python 3.10/3.11 compatibility** ([#25](https://github.com/davidmalko87/jira-project-backup-restore/issues/25)) — `shutil.rmtree(onexc=...)` was introduced in Python 3.12, causing `TypeError` on older versions when cleaning up incomplete backups. Now uses `onerror` on Python < 3.12.
+- **SSL warning spam** — when `JIRA_VERIFY_SSL=false` (e.g. behind a corporate proxy), every API call printed an `InsecureRequestWarning` to the console, making output unreadable. Warnings are now suppressed when the user explicitly disables SSL verification.
+
+### Added
+- **Worklog progress display** — `_backup_worklogs` now logs progress every 100 issues (e.g. `Worklogs: 300 / 17800 checked (42 with entries)`), matching the existing issue-fetch progress and giving feedback on long-running backups.
+
+---
+
 ## [1.3.1] - 2026-05-02
 
 ### Fixed

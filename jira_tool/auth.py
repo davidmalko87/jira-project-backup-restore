@@ -4,6 +4,7 @@
 """Session builder supporting API token auth and cookie auth fallback."""
 
 import requests
+import urllib3
 
 from jira_tool.config import JiraConfig
 
@@ -23,6 +24,9 @@ def build_session(config: JiraConfig) -> requests.Session:
     Returns:
         Configured requests.Session ready for API calls.
     """
+    if not config.verify_ssl:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
     session = requests.Session()
     session.verify = config.verify_ssl
     session.headers.update({"Accept": "application/json"})

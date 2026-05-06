@@ -85,7 +85,7 @@ python main.py
 
 ```
 ==================================================
-  Jira Backup & Restore Tool v1.3.1
+  Jira Backup & Restore Tool v1.3.2
 ==================================================
   Instance : https://your-domain.atlassian.net
   Auth     : API Token
