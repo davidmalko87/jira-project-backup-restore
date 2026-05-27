@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jira-project-backup-restore"
-version = "1.3.2"
+version = "1.4.0"
 description = "Backup and restore individual Jira Cloud projects via REST API"
 readme = "README.md"
 license = "MIT"
