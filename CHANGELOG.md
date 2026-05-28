@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [1.4.0] - 2026-05-27
+
+### Added
+- **Backup completeness verification** — backups now detect silent truncation. The enhanced `/search/jql` endpoint no longer returns a total, so the expected issue count is fetched from `/search/approximate-count` and compared against what was actually written. A shortfall beyond 1% logs a clear WARNING and marks the backup incomplete. Attachment counts (referenced vs downloaded) are checked the same way.
+- **SHA-256 checksums in the manifest** — `manifest.json` now records a per-file checksum plus a `verification` block (expected/actual issue and attachment counts) and a top-level `complete` flag.
+- **Stronger validation** — the "Validate backup integrity" menu option and the new `--validate <dir>` CLI flag now verify file presence, SHA-256 checksums, and completeness counts (previously only checked that files existed). `--validate` exits non-zero when problems are found, for use in scripts.
+
+### Changed
+- `--skip-existing` and the interactive skip prompt now treat a backup as reusable only if its manifest's `complete` flag is not False, so an incomplete backup is re-run instead of silently reused. Manifests written by older versions (no flag) are still treated as complete.
+
+---
+
 ## [1.3.2] - 2026-05-06
 
 ### Fixed

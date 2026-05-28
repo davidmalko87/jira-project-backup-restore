@@ -11,7 +11,7 @@ from jira_tool import __version__
 from jira_tool.api_client import JiraApiError, JiraClient
 from jira_tool.attachments import AttachmentUploader
 from jira_tool.auth import build_session
-from jira_tool.backup import BackupManager
+from jira_tool.backup import BackupManager, validate_backup
 from jira_tool.config import JiraConfig
 from jira_tool.export import (
     export_backup_to_csv,
@@ -266,39 +266,68 @@ def _menu_validate_backup(config: JiraConfig) -> None:
         return
 
     backup_dir = os.path.join(config.backup_root, backup_name)
-    manifest_path = os.path.join(backup_dir, "manifest.json")
+    print("\n  Verifying files and checksums...")
+    _print_validation_report(backup_dir)
+    _pause()
 
-    if not os.path.exists(manifest_path):
-        print("  manifest.json not found in backup.")
-        _pause()
+
+def _print_validation_report(backup_dir: str) -> None:
+    """Run validate_backup and print a human-readable report."""
+    result = validate_backup(backup_dir)
+
+    if not result["manifest_found"]:
+        print("  manifest.json not found — backup is incomplete.")
         return
 
-    manifest = load_json(manifest_path)
-    files = manifest.get("files", [])
-    missing = []
-    present = 0
+    print(f"\n  Project: {result['project_key']}")
+    print(f"  Created: {result['created_at']}")
 
-    for rel_path in files:
-        full_path = os.path.join(backup_dir, rel_path)
-        if os.path.exists(full_path):
-            present += 1
-        else:
-            missing.append(rel_path)
+    flag = result["complete_flag"]
+    if flag is False:
+        print("  Completeness flag: INCOMPLETE (see counts below)")
+    elif flag is True:
+        print("  Completeness flag: complete")
+    else:
+        print("  Completeness flag: (legacy backup, not recorded)")
 
-    print(f"\n  Project: {manifest.get('project_key', '?')}")
-    print(f"  Created: {manifest.get('created_at', '?')}")
-    print(f"  Files present: {present}/{len(files)}")
+    print(
+        f"  Files present : {result['files_present']}/{result['files_total']}"
+    )
+    print(
+        f"  Checksums OK  : {result['checksum_ok']}/{result['checksum_total']}"
+    )
 
+    ver = result["verification"]
+    if ver.get("issues_expected") is not None:
+        print(
+            f"  Issues        : {ver.get('issues_actual', 0)} stored / "
+            f"~{ver['issues_expected']} reported by Jira"
+        )
+    if ver.get("attachments_expected") is not None:
+        print(
+            f"  Attachments   : {ver.get('attachments_actual', 0)} stored / "
+            f"{ver['attachments_expected']} referenced"
+        )
+
+    missing = result["missing"]
+    failed = result["checksum_failed"]
     if missing:
-        print(f"  MISSING files ({len(missing)}):")
+        print(f"\n  MISSING files ({len(missing)}):")
         for f in missing[:20]:
             print(f"    - {f}")
         if len(missing) > 20:
             print(f"    ... and {len(missing) - 20} more")
-    else:
-        print("  All files present. Backup is intact.")
+    if failed:
+        print(f"\n  CHECKSUM MISMATCH ({len(failed)}) — files changed/corrupt:")
+        for f in failed[:20]:
+            print(f"    - {f}")
+        if len(failed) > 20:
+            print(f"    ... and {len(failed) - 20} more")
 
-    _pause()
+    if not missing and not failed and flag is not False:
+        print("\n  Backup is intact and complete.")
+    elif not missing and not failed:
+        print("\n  Files intact, but backup was flagged incomplete at capture.")
 
 
 def _menu_upload_attachments(config: JiraConfig) -> None:

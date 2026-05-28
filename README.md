@@ -31,6 +31,7 @@ Jira Cloud has no built-in per-project backup/restore. The only native option wa
 | **Auto-cleanup** | Incomplete/partial backup folders are automatically removed before each run |
 | **Resumable** | Safely re-run after interruption — already-processed items are skipped |
 | **Memory efficient** | Issues stream directly to disk — backup 18 000+ issues on a 1 GB host without OOM |
+| **Verified backups** | Detects silent truncation (count check), records SHA-256 checksums, and validates on demand |
 | **Dry-run mode** | Preview all restore actions without making any API calls |
 | **Rate-limit aware** | Exponential backoff with `429 / Retry-After` detection |
 | **CSV export** | Export backup data to CSV files for reporting, auditing, and sharing |
@@ -85,7 +86,7 @@ python main.py
 
 ```
 ==================================================
-  Jira Backup & Restore Tool v1.3.2
+  Jira Backup & Restore Tool v1.4.0
 ==================================================
   Instance : https://your-domain.atlassian.net
   Auth     : API Token
@@ -131,6 +132,12 @@ python main.py --export-csv backups/PROJ_20260322_143000
 python main.py --export-csv backups/PROJ_20260322_143000 --output-dir /tmp/report
 ```
 
+**CLI — validate a backup** (exits non-zero on problems, for scripts/cron):
+
+```bash
+python main.py --validate backups/PROJ_20260322_143000
+```
+
 ---
 
 ## What Gets Backed Up
@@ -147,7 +154,7 @@ python main.py --export-csv backups/PROJ_20260322_143000 --output-dir /tmp/repor
 | `boards.json` | Agile board list |
 | `board_<id>_config.json` | Board columns and swimlanes |
 | `board_<id>_sprints.json` | Sprint history |
-| `manifest.json` | File index — presence marks the backup as complete |
+| `manifest.json` | File index, SHA-256 checksums, completeness counts, and a `complete` flag |
 
 ---
 

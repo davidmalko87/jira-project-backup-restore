@@ -12,7 +12,7 @@ import sys
 
 from jira_tool.api_client import JiraClient
 from jira_tool.auth import build_session
-from jira_tool.backup import BackupManager
+from jira_tool.backup import BackupManager, validate_backup
 from jira_tool.config import load_config
 from jira_tool.export import export_backup_to_csv
 from jira_tool.menu import run_menu
@@ -58,11 +58,57 @@ def main() -> None:
         "--output-dir",
         help="Output directory for CSV export (default: <backup>/csv_export)",
     )
+    parser.add_argument(
+        "--validate",
+        help="Validate a backup directory (files + checksums + counts)",
+    )
 
     args = parser.parse_args()
 
     config = load_config(args.env)
     logger = setup_logging(log_dir=config.backup_root)
+
+    # Non-interactive: validate backup
+    if args.validate:
+        import os
+        backup_dir = args.validate
+        if not os.path.isdir(backup_dir):
+            print(f"[!] Backup directory not found: {backup_dir}")
+            sys.exit(1)
+        result = validate_backup(backup_dir)
+        if not result["manifest_found"]:
+            print("[!] manifest.json not found — backup is incomplete.")
+            sys.exit(1)
+        print(f"Project: {result['project_key']}")
+        print(f"Created: {result['created_at']}")
+        print(
+            f"Files present: {result['files_present']}/{result['files_total']}"
+        )
+        print(
+            f"Checksums OK : {result['checksum_ok']}/{result['checksum_total']}"
+        )
+        ver = result["verification"]
+        if ver.get("issues_expected") is not None:
+            print(
+                f"Issues       : {ver.get('issues_actual', 0)} stored / "
+                f"~{ver['issues_expected']} reported"
+            )
+        if ver.get("attachments_expected") is not None:
+            print(
+                f"Attachments  : {ver.get('attachments_actual', 0)} stored / "
+                f"{ver['attachments_expected']} referenced"
+            )
+        ok = (
+            not result["missing"]
+            and not result["checksum_failed"]
+            and result["complete_flag"] is not False
+        )
+        if result["missing"]:
+            print(f"MISSING files: {len(result['missing'])}")
+        if result["checksum_failed"]:
+            print(f"CHECKSUM mismatches: {len(result['checksum_failed'])}")
+        print("Result: " + ("OK — intact and complete" if ok else "PROBLEMS FOUND"))
+        sys.exit(0 if ok else 2)
 
     # Non-interactive: CSV export
     if args.export_csv:

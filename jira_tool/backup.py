@@ -7,6 +7,7 @@ Collects: project metadata, components, versions, roles, issues
 (with changelog), worklogs, attachments, and agile board config.
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -18,7 +19,12 @@ from datetime import datetime
 from jira_tool import __version__
 from jira_tool.api_client import JiraApiError, JiraClient
 from jira_tool.config import JiraConfig
-from jira_tool.utils import save_json, sanitize_filename, utc_now_iso
+from jira_tool.utils import (
+    load_json,
+    save_json,
+    sanitize_filename,
+    utc_now_iso,
+)
 
 logger = logging.getLogger("jira_tool")
 
@@ -37,12 +43,91 @@ def _force_rmtree(path: str) -> None:
         shutil.rmtree(path, onerror=_on_error)
 
 
+def _sha256(path: str) -> str:
+    """Return the SHA-256 hex digest of a file, read in streaming chunks."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _manifest_is_complete(backup_dir: str) -> bool:
+    """Return True if a backup's manifest marks it complete.
+
+    Manifests written before completeness verification existed have no
+    ``complete`` flag and are treated as complete for backward compatibility.
+    """
+    try:
+        manifest = load_json(os.path.join(backup_dir, "manifest.json"))
+    except (OSError, ValueError):
+        return False
+    return manifest.get("complete", True) is not False
+
+
+def validate_backup(backup_dir: str) -> dict:
+    """Validate a backup against its manifest.
+
+    Checks file presence, SHA-256 checksums, and the recorded completeness
+    counters. Returns a result dict suitable for display by the menu or CLI.
+    """
+    result: dict = {
+        "manifest_found": False,
+        "project_key": "?",
+        "created_at": "?",
+        "complete_flag": None,
+        "files_total": 0,
+        "files_present": 0,
+        "missing": [],
+        "checksum_total": 0,
+        "checksum_ok": 0,
+        "checksum_failed": [],
+        "verification": {},
+    }
+
+    manifest_path = os.path.join(backup_dir, "manifest.json")
+    if not os.path.exists(manifest_path):
+        return result
+
+    manifest = load_json(manifest_path)
+    result["manifest_found"] = True
+    result["project_key"] = manifest.get("project_key", "?")
+    result["created_at"] = manifest.get("created_at", "?")
+    result["complete_flag"] = manifest.get("complete")
+    result["verification"] = manifest.get("verification", {})
+
+    files = manifest.get("files", [])
+    checksums = manifest.get("checksums", {})
+    result["files_total"] = len(files)
+    result["checksum_total"] = len(checksums)
+
+    for rel in files:
+        full = os.path.join(backup_dir, rel)
+        if os.path.exists(full):
+            result["files_present"] += 1
+        else:
+            result["missing"].append(rel)
+
+    for rel, expected_hash in checksums.items():
+        full = os.path.join(backup_dir, rel)
+        if not os.path.exists(full):
+            continue  # already reported as missing
+        if _sha256(full) == expected_hash:
+            result["checksum_ok"] += 1
+        else:
+            result["checksum_failed"].append(rel)
+
+    return result
+
+
 class BackupManager:
     """Orchestrates backup of one or more Jira projects."""
 
     def __init__(self, client: JiraClient, config: JiraConfig) -> None:
         self.client = client
         self.config = config
+        # Per-project completeness counters, reset at the start of each backup.
+        self._verification: dict = {}
 
     def backup_project(self, project_key: str) -> str:
         """Run full backup for a single project.
@@ -68,14 +153,21 @@ class BackupManager:
         logger.info("  Output: %s", out_dir)
         logger.info("=" * 55)
 
+        self._verification = {}
+        expected_issues = self._get_issue_count(project_key)
+
         self._backup_metadata(project_key, out_dir)
-        issues = self._backup_issues(project_key, out_dir)
+        issues = self._backup_issues(project_key, out_dir, expected_issues)
 
         if issues:
             if self.config.include_worklogs:
                 self._backup_worklogs(issues, out_dir)
             if self.config.include_attachments:
                 self._backup_attachments(issues, out_dir)
+                self._verification["attachments_expected"] = sum(
+                    len((i.get("fields") or {}).get("attachment") or [])
+                    for i in issues
+                )
 
         self._backup_boards(project_key, out_dir)
         self._write_manifest(out_dir, project_key)
@@ -126,7 +218,9 @@ class BackupManager:
     def _find_existing_backup(self, project_key: str) -> str | None:
         """Return the most-recent complete backup dir for a project, or None.
 
-        A backup is considered complete when manifest.json is present.
+        A backup is considered complete when manifest.json is present and its
+        ``complete`` flag is not False (manifests written before completeness
+        verification have no flag and are treated as complete).
         """
         root = self.config.backup_root
         prefix = f"{project_key}_"
@@ -137,6 +231,7 @@ class BackupManager:
                 if d.startswith(prefix)
                 and os.path.isdir(os.path.join(root, d))
                 and os.path.exists(os.path.join(root, d, "manifest.json"))
+                and _manifest_is_complete(os.path.join(root, d))
             ]
         except FileNotFoundError:
             return None
@@ -223,8 +318,28 @@ class BackupManager:
         save_json(roles, os.path.join(out_dir, "roles.json"))
         logger.info("    Saved roles.json")
 
+    def _get_issue_count(self, project_key: str) -> int | None:
+        """Return Jira's issue count for the project, for completeness checks.
+
+        The enhanced ``/search/jql`` endpoint no longer returns a ``total``, so
+        the count is fetched from the companion ``approximate-count`` endpoint.
+        The result is approximate for large projects, so callers should treat a
+        small shortfall as noise and only flag a substantial one. Returns None
+        if the count cannot be determined (the check is then skipped).
+        """
+        try:
+            data = self.client.post(
+                "/rest/api/3/search/approximate-count",
+                {"jql": f'project = "{project_key}"'},
+            )
+            count = data.get("count")
+            return int(count) if count is not None else None
+        except (JiraApiError, TypeError, ValueError):
+            return None
+
     def _backup_issues(
         self, project_key: str, out_dir: str,
+        expected: int | None = None,
     ) -> list[dict]:
         """Paginated fetch of all issues, streaming each page directly to disk.
 
@@ -294,6 +409,19 @@ class BackupManager:
             f.write("\n]")
 
         logger.info("[+] Total issues fetched: %d", total_fetched)
+
+        self._verification["issues_expected"] = expected
+        self._verification["issues_actual"] = total_fetched
+        # Allow 1% slack: approximate-count jitter and issues created mid-backup
+        # should not raise a false alarm, but a real truncation will.
+        if expected is not None and total_fetched < expected * 0.99:
+            logger.warning(
+                "[!] Completeness check: wrote %d issues but Jira reports ~%d. "
+                "Backup may be INCOMPLETE (possible rate-limit or pagination "
+                "cut-off).",
+                total_fetched, expected,
+            )
+
         return lite_issues
 
     def _backup_worklogs(
@@ -448,25 +576,62 @@ class BackupManager:
     def _write_manifest(
         self, out_dir: str, project_key: str,
     ) -> None:
-        """Write manifest.json listing all backed-up files."""
+        """Write manifest.json with file index, sha256 checksums, and a
+        completeness verification block.
+        """
+        files: list[str] = []
+        checksums: dict[str, str] = {}
+        attachments_actual = 0
+
+        for root, _, names in os.walk(out_dir):
+            for fname in names:
+                if fname == "manifest.json":
+                    continue
+                full = os.path.join(root, fname)
+                rel = os.path.relpath(full, out_dir)
+                files.append(rel)
+                checksums[rel] = _sha256(full)
+                if rel.replace(os.sep, "/").startswith("attachments/"):
+                    attachments_actual += 1
+
+        verification = dict(self._verification)
+        if "attachments_expected" in verification:
+            verification["attachments_actual"] = attachments_actual
+
+        complete = self._is_backup_complete(verification)
+
         manifest = {
             "project_key": project_key,
             "source_url": self.config.jira_url,
             "created_at": utc_now_iso(),
             "tool_version": __version__,
-            "files": [],
+            "complete": complete,
+            "verification": verification,
+            "checksums": checksums,
+            "files": files,
         }
-
-        for root, _, files in os.walk(out_dir):
-            for fname in files:
-                if fname == "manifest.json":
-                    continue
-                rel = os.path.relpath(
-                    os.path.join(root, fname), out_dir,
-                )
-                manifest["files"].append(rel)
 
         save_json(manifest, os.path.join(out_dir, "manifest.json"))
         logger.info(
-            "[+] Manifest: %d files", len(manifest["files"]),
+            "[+] Manifest: %d files, complete=%s", len(files), complete,
         )
+        if not complete:
+            logger.warning(
+                "[!] Backup marked INCOMPLETE — see verification block in "
+                "manifest.json and re-run the backup.",
+            )
+
+    @staticmethod
+    def _is_backup_complete(verification: dict) -> bool:
+        """Decide the completeness flag from the verification counters."""
+        issues_expected = verification.get("issues_expected")
+        issues_actual = verification.get("issues_actual", 0)
+        if issues_expected is not None and issues_actual < issues_expected * 0.99:
+            return False
+
+        att_expected = verification.get("attachments_expected")
+        att_actual = verification.get("attachments_actual", 0)
+        if att_expected is not None and att_actual < att_expected:
+            return False
+
+        return True
