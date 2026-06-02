@@ -5,9 +5,9 @@
 [![PyPI downloads](https://img.shields.io/pypi/dm/jira-project-backup-restore.svg)](https://pypi.org/project/jira-project-backup-restore/)
 [![Python](https://img.shields.io/pypi/pyversions/jira-project-backup-restore.svg?logo=python&logoColor=white)](https://pypi.org/project/jira-project-backup-restore/)
 [![Jira Cloud](https://img.shields.io/badge/Jira-Cloud-0052CC.svg?logo=jira&logoColor=white)](https://www.atlassian.com/software/jira)
-[![Round-trip verified](https://img.shields.io/badge/restore-round--trip%20verified-brightgreen.svg)](#restore-phases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#)
+[![Round-trip](https://img.shields.io/badge/round--trip-verified-success.svg)](#-round-trip-verified)
 [![Last commit](https://img.shields.io/github/last-commit/davidmalko87/jira-project-backup-restore.svg)](https://github.com/davidmalko87/jira-project-backup-restore/commits/master)
 [![GitHub issues](https://img.shields.io/github/issues/davidmalko87/jira-project-backup-restore.svg)](https://github.com/davidmalko87/jira-project-backup-restore/issues)
 
@@ -176,7 +176,11 @@ Phases 1–5 run by default. Phase 6 is **opt-in** (it fires workflow rules and 
 
 Issue key mapping between source and target is saved in `key_mapping.json` inside the backup directory.
 
-> **Round-trip verified.** Each release is validated on a live non-prod Jira Cloud site by backing up a project, restoring it into a fresh project, and diffing every dimension — issue count, types, hierarchy (epics/subtasks), ADF bodies, labels, links (no duplicates), comments, worklogs (with attribution), attachments (SHA-256 match), and status. Structural checks alone are not treated as proof.
+---
+
+## ✅ Round-trip Verified
+
+The backup→restore round-trip has been **proven end-to-end against a live Jira Cloud site**: a project was backed up, restored into a fresh project, and diffed via the API — **issue count, types, hierarchy (epics/subtasks), ADF bodies, labels, links (no duplicates), comments, worklogs, and attachment bytes (SHA-256) all matched**. A backup is only proven once it has been restored end-to-end and verified; structural checks alone are necessary but not sufficient.
 
 ---
 
