@@ -86,7 +86,7 @@ python main.py
 
 ```
 ==================================================
-  Jira Backup & Restore Tool v1.4.0
+  Jira Backup & Restore Tool v1.5.0
 ==================================================
   Instance : https://your-domain.atlassian.net
   Auth     : API Token
@@ -169,6 +169,9 @@ Each phase can be toggled individually and is fully resumable via `restore_progr
 | 3 | Add comments — original author and date prepended as text | `POST /rest/api/3/issue/{key}/comment` |
 | 4 | Add worklogs — original author prepended as text | `POST /rest/api/3/issue/{key}/worklog` |
 | 5 | Upload attachments — skips duplicates by filename | `POST /rest/api/3/issue/{key}/attachments` |
+| 6 | **Restore statuses** (opt-in, best-effort) — single workflow transition to the original status | `POST /rest/api/3/issue/{key}/transitions` |
+
+Phases 1–5 run by default. Phase 6 is **opt-in** (it fires workflow rules and notifications): enable it with `--with-statuses` on the CLI, or by selecting `6` in the interactive phase prompt.
 
 Issue key mapping between source and target is saved in `key_mapping.json` inside the backup directory.
 
@@ -182,9 +185,9 @@ These are Jira Cloud REST API constraints — not tool limitations:
 |---|---|---|
 | Timestamps (created/updated) | Not restorable | Cloud API blocks setting these fields |
 | Changelog / history | Backup only | No write endpoint exists |
-| Comment / worklog author | Text attribution | `[Originally by Name on Date]` prepended |
+| Comment / worklog author | Text attribution | `[Originally by Name on Date]` prepended; original ADF body preserved |
 | Reporter / Assignee | Conditional | Restored only if the user's email exists in the target instance |
-| Issue status | Resets to default | Workflow transitions not yet automated |
+| Issue status | Best-effort (opt-in) | Phase 6 restores it via a single workflow transition; statuses needing a multi-step path or a required-field screen stay at the project default |
 | Issue keys (e.g. `KEY-123`) | Reassigned | Cloud assigns new keys; old→new mapping is saved |
 
 ---

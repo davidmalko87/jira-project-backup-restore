@@ -62,6 +62,10 @@ def main() -> None:
         "--validate",
         help="Validate a backup directory (files + checksums + counts)",
     )
+    parser.add_argument(
+        "--with-statuses", action="store_true",
+        help="During restore, also attempt best-effort status transitions",
+    )
 
     args = parser.parse_args()
 
@@ -164,10 +168,18 @@ def main() -> None:
         )
         manager = RestoreManager(client, config, progress)
 
+        phases = None
+        if args.with_statuses:
+            phases = {
+                "issues": True, "links": True, "comments": True,
+                "worklogs": True, "attachments": True, "statuses": True,
+            }
+
         manager.restore_project(
             args.restore,
             args.target.upper(),
             dry_run=args.dry_run,
+            phases=phases,
         )
         return
 

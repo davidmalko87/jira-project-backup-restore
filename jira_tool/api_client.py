@@ -122,12 +122,15 @@ class JiraClient:
 
                 time.sleep(self.config.api_delay)
 
-                if resp.status_code in (200, 201):
+                if resp.status_code in (200, 201, 202):
                     logger.debug(
                         "UPLOAD %s -> %d (%s)",
                         url, resp.status_code, filename,
                     )
-                    return resp.json()
+                    try:
+                        return resp.json()
+                    except ValueError:
+                        return {}
 
                 if resp.status_code == 429:
                     self._handle_rate_limit(resp, attempt)
@@ -307,10 +310,20 @@ class JiraClient:
                     "%s %s -> %d", method, path, resp.status_code,
                 )
 
-                if resp.status_code in (200, 201, 204):
+                # 202 Accepted is a success (some endpoints return it for
+                # async work). A 2xx with an empty or non-JSON body must not
+                # crash — return an empty dict instead of raising JSONDecodeError.
+                if resp.status_code in (200, 201, 202, 204):
                     if resp.status_code == 204 or not resp.text:
                         return {}
-                    return resp.json()
+                    try:
+                        return resp.json()
+                    except ValueError:
+                        logger.debug(
+                            "%s %s -> %d with non-JSON body (%d bytes)",
+                            method, path, resp.status_code, len(resp.text),
+                        )
+                        return {}
 
                 if resp.status_code == 429:
                     self._handle_rate_limit(resp, attempt)
