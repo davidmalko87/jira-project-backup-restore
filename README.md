@@ -7,6 +7,7 @@
 [![Jira Cloud](https://img.shields.io/badge/Jira-Cloud-0052CC.svg?logo=jira&logoColor=white)](https://www.atlassian.com/software/jira)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#)
+[![Round-trip](https://img.shields.io/badge/round--trip-verified-success.svg)](#-round-trip-verified)
 [![Last commit](https://img.shields.io/github/last-commit/davidmalko87/jira-project-backup-restore.svg)](https://github.com/davidmalko87/jira-project-backup-restore/commits/master)
 [![GitHub issues](https://img.shields.io/github/issues/davidmalko87/jira-project-backup-restore.svg)](https://github.com/davidmalko87/jira-project-backup-restore/issues)
 
@@ -86,7 +87,7 @@ python main.py
 
 ```
 ==================================================
-  Jira Backup & Restore Tool v1.4.0
+  Jira Backup & Restore Tool v1.5.0
 ==================================================
   Instance : https://your-domain.atlassian.net
   Auth     : API Token
@@ -169,8 +170,17 @@ Each phase can be toggled individually and is fully resumable via `restore_progr
 | 3 | Add comments — original author and date prepended as text | `POST /rest/api/3/issue/{key}/comment` |
 | 4 | Add worklogs — original author prepended as text | `POST /rest/api/3/issue/{key}/worklog` |
 | 5 | Upload attachments — skips duplicates by filename | `POST /rest/api/3/issue/{key}/attachments` |
+| 6 | **Restore statuses** (opt-in, best-effort) — single workflow transition to the original status | `POST /rest/api/3/issue/{key}/transitions` |
+
+Phases 1–5 run by default. Phase 6 is **opt-in** (it fires workflow rules and notifications): enable it with `--with-statuses` on the CLI, or by selecting `6` in the interactive phase prompt.
 
 Issue key mapping between source and target is saved in `key_mapping.json` inside the backup directory.
+
+---
+
+## ✅ Round-trip Verified
+
+The backup→restore round-trip has been **proven end-to-end against a live Jira Cloud site**: a project was backed up, restored into a fresh project, and diffed via the API — **issue count, types, hierarchy (epics/subtasks), ADF bodies, labels, links (no duplicates), comments, worklogs, and attachment bytes (SHA-256) all matched**. A backup is only proven once it has been restored end-to-end and verified; structural checks alone are necessary but not sufficient.
 
 ---
 
@@ -182,9 +192,9 @@ These are Jira Cloud REST API constraints — not tool limitations:
 |---|---|---|
 | Timestamps (created/updated) | Not restorable | Cloud API blocks setting these fields |
 | Changelog / history | Backup only | No write endpoint exists |
-| Comment / worklog author | Text attribution | `[Originally by Name on Date]` prepended |
+| Comment / worklog author | Text attribution | `[Originally by Name on Date]` prepended; original ADF body preserved |
 | Reporter / Assignee | Conditional | Restored only if the user's email exists in the target instance |
-| Issue status | Resets to default | Workflow transitions not yet automated |
+| Issue status | Best-effort (opt-in) | Phase 6 restores it via a single workflow transition; statuses needing a multi-step path or a required-field screen stay at the project default |
 | Issue keys (e.g. `KEY-123`) | Reassigned | Cloud assigns new keys; old→new mapping is saved |
 
 ---

@@ -659,7 +659,8 @@ def _ask_phases() -> dict[str, bool]:
     print("    3) Restore comments")
     print("    4) Restore worklogs")
     print("    5) Upload attachments")
-    print("    A) All phases (default)")
+    print("    6) Restore statuses (best-effort, opt-in)")
+    print("    A) Core phases 1-5 (default; excludes 6)")
 
     choice = input(
         "  Enter phases to run (e.g. 1,2,3 or A): ",
@@ -672,6 +673,7 @@ def _ask_phases() -> dict[str, bool]:
             "comments": True,
             "worklogs": True,
             "attachments": True,
+            "statuses": False,
         }
 
     selected = {c.strip() for c in choice.split(",")}
@@ -681,6 +683,7 @@ def _ask_phases() -> dict[str, bool]:
         "comments": "3" in selected,
         "worklogs": "4" in selected,
         "attachments": "5" in selected,
+        "statuses": "6" in selected,
     }
 
 

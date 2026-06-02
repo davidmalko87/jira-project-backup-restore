@@ -63,6 +63,62 @@ def _extract_text_from_adf(adf: dict) -> str:
     return "".join(parts).strip()
 
 
+def _issue_type_name(issue: dict) -> str:
+    """Return an issue's type name, tolerating missing fields."""
+    return (
+        ((issue.get("fields") or {}).get("issuetype") or {}).get("name", "")
+    )
+
+
+def _is_subtask(issue: dict) -> bool:
+    """True if the issue is a sub-task (needs its parent created first)."""
+    return _issue_type_name(issue) in ("Sub-task", "Subtask")
+
+
+def _issue_sort_key(issue: dict) -> int:
+    """Creation order: 0=Epic, 1=regular, 2=Sub-task.
+
+    Epics first (they may be parents), sub-tasks last (their parent must
+    already exist so the key mapping resolves).
+    """
+    itype = _issue_type_name(issue)
+    if itype == "Epic":
+        return 0
+    if itype in ("Sub-task", "Subtask"):
+        return 2
+    return 1
+
+
+def _adf_with_attribution(attribution: str, body) -> dict:
+    """Build an ADF comment/worklog body with an attribution line prepended.
+
+    The v3 API stores comment and worklog bodies as ADF documents (dicts).
+    This prepends the attribution as its own paragraph and preserves the
+    original ADF content (rich formatting, lists, links). Falls back to
+    plain text for legacy string bodies. Passing the ADF dict straight into
+    an f-string would serialise ``{'type': 'doc', ...}`` into the visible
+    text, so always route bodies through here.
+    """
+    attribution_para = {
+        "type": "paragraph",
+        "content": [{"type": "text", "text": attribution}],
+    }
+
+    if isinstance(body, dict) and body.get("type") == "doc":
+        extra = body.get("content", [])
+    elif body:
+        # Plain text / legacy body — wrap each line as a paragraph.
+        extra = text_to_adf(str(body)).get("content", [])
+    else:
+        extra = []
+
+    return {
+        "version": 1,
+        "type": "doc",
+        "content": [attribution_para, *extra],
+    }
+
+
 class RestoreManager:
     """Orchestrates restore of a backup into Jira Cloud."""
 
@@ -125,6 +181,11 @@ class RestoreManager:
         if run.get("attachments"):
             self._phase_restore_attachments(backup_dir, dry_run)
 
+        # Opt-in: not in the default phase set (transitions fire workflow
+        # rules/notifications, so it must be explicitly requested).
+        if run.get("statuses"):
+            self._phase_restore_statuses(backup_dir, dry_run)
+
         logger.info("\n[OK] Restore complete.")
 
     # ------------------------------------------------------------------
@@ -152,31 +213,15 @@ class RestoreManager:
         issues = load_json(issues_path)
         ok = skip = fail = 0
 
-        def _sort_key(issue: dict) -> int:
-            """Sort: 0=Epic, 1=Regular, 2=Sub-task."""
-            itype = (
-                (issue.get("fields") or {})
-                .get("issuetype", {})
-                .get("name", "")
-            )
-            if itype == "Epic":
-                return 0
-            if itype in ("Sub-task", "Subtask"):
-                return 2
-            return 1
-
         # Two-pass: non-subtasks first, then subtasks
         # Why: subtasks need parent key mapping to exist
         for pass_num, pass_label in enumerate(
             ["non-subtask", "subtask"]
         ):
-            for issue in sorted(issues, key=_sort_key):
+            for issue in sorted(issues, key=_issue_sort_key):
                 orig_key = issue["key"]
                 fields = issue.get("fields", {}) or {}
-                itype_name = (
-                    (fields.get("issuetype") or {}).get("name", "")
-                )
-                is_subtask = itype_name in ("Sub-task", "Subtask")
+                is_subtask = _is_subtask(issue)
 
                 if pass_num == 0 and is_subtask:
                     continue
@@ -719,15 +764,16 @@ class RestoreManager:
                     .get("displayName", "Unknown")
                 )
                 created = comment.get("created", "")[:10]
-                body = comment.get("body") or ""
 
-                # Author attribution — Cloud API doesn't allow
-                # setting comment author
-                attributed = (
-                    f"[Originally by {author} on {created}]"
-                    f"\n\n{body}"
-                )
-                payload = {"body": text_to_adf(attributed)}
+                # Author attribution — Cloud API doesn't allow setting the
+                # comment author, so prepend it as text. The body is ADF
+                # (v3 API); preserve it rather than stringifying the dict.
+                attribution = f"[Originally by {author} on {created}]"
+                payload = {
+                    "body": _adf_with_attribution(
+                        attribution, comment.get("body"),
+                    ),
+                }
 
                 if dry_run:
                     logger.info(
@@ -807,20 +853,19 @@ class RestoreManager:
                     datetime.now(timezone.utc).isoformat(),
                 )
                 seconds = log.get("timeSpentSeconds", 0)
-                comment = log.get("comment") or ""
 
                 if not seconds:
                     continue
 
-                note = (
-                    f"[Originally logged by {author}]\n{comment}"
-                    if comment
-                    else f"[Originally logged by {author}]"
-                )
+                # Attribution prepended as text; preserve the original ADF
+                # worklog comment rather than stringifying the dict.
+                attribution = f"[Originally logged by {author}]"
                 payload = {
                     "timeSpentSeconds": seconds,
                     "started": started,
-                    "comment": text_to_adf(note),
+                    "comment": _adf_with_attribution(
+                        attribution, log.get("comment"),
+                    ),
                 }
 
                 if dry_run:
@@ -960,6 +1005,123 @@ class RestoreManager:
 
         if fail == 0:
             self.progress.mark_phase_complete("attachments")
+
+    # ------------------------------------------------------------------
+    # Phase 6 — Statuses (best-effort, opt-in)
+    # ------------------------------------------------------------------
+
+    def _phase_restore_statuses(
+        self, backup_dir: str, dry_run: bool,
+    ) -> None:
+        """Best-effort: move each restored issue to its original status.
+
+        Newly created issues always start at the project's initial status.
+        This attempts a single workflow transition whose target status name
+        matches the backed-up status. It is deliberately conservative:
+
+          - Only a direct, single-hop transition is used. Statuses that need
+            a multi-step path (e.g. To Do -> In Progress -> Done where Done
+            is not directly available) are left at the initial status.
+          - Transitions gated by a screen with required fields will fail and
+            are logged, not forced.
+
+        Because transitions can fire workflow rules and notifications, this
+        phase is opt-in (not part of the default phase set).
+        """
+        if self.progress.is_phase_complete("statuses"):
+            logger.info("[PHASE 6] Already complete — skipping.")
+            return
+
+        logger.info("\n[PHASE 6] Restoring statuses (best-effort)...")
+
+        issues_path = os.path.join(backup_dir, "issues.json")
+        if not os.path.exists(issues_path):
+            logger.warning("  issues.json not found — skipping.")
+            return
+
+        issues = load_json(issues_path)
+        ok = skip = fail = 0
+
+        for issue in issues:
+            orig_key = issue["key"]
+            cloud_key = self.progress.get_cloud_key(orig_key)
+            if not cloud_key:
+                continue
+
+            desired = (
+                ((issue.get("fields") or {}).get("status") or {}).get("name")
+            )
+            if not desired:
+                continue
+
+            item_id = f"{orig_key}_status"
+            if self.progress.is_item_done("statuses", item_id):
+                skip += 1
+                continue
+
+            if dry_run:
+                logger.info(
+                    "  [DRY] %s -> set status '%s'", cloud_key, desired,
+                )
+                ok += 1
+                continue
+
+            try:
+                current = (
+                    (self.client.get(
+                        f"/rest/api/3/issue/{cloud_key}",
+                        params={"fields": "status"},
+                    ).get("fields") or {}).get("status") or {}
+                ).get("name")
+
+                if current and current.lower() == desired.lower():
+                    self.progress.mark_item_done("statuses", item_id)
+                    skip += 1
+                    continue
+
+                data = self.client.get(
+                    f"/rest/api/3/issue/{cloud_key}/transitions",
+                )
+                match = next(
+                    (
+                        t for t in data.get("transitions", [])
+                        if (t.get("to") or {}).get("name", "").lower()
+                        == desired.lower()
+                    ),
+                    None,
+                )
+                if not match:
+                    logger.warning(
+                        "  %s: status '%s' not reachable in one transition "
+                        "from '%s' — left as-is.",
+                        cloud_key, desired, current,
+                    )
+                    skip += 1
+                    continue
+
+                self.client.post(
+                    f"/rest/api/3/issue/{cloud_key}/transitions",
+                    {"transition": {"id": match["id"]}},
+                )
+                self.progress.mark_item_done("statuses", item_id)
+                logger.info(
+                    "  %s -> '%s'", cloud_key, desired,
+                )
+                ok += 1
+            except JiraApiError as exc:
+                logger.error(
+                    "  Status transition failed for %s: %s",
+                    cloud_key, exc,
+                )
+                fail += 1
+
+        logger.info(
+            "  Done — Transitioned: %d, Skipped: %d, Failed: %d",
+            ok, skip, fail,
+        )
+
+        if fail == 0:
+            self.progress.mark_phase_complete("statuses")
 
     def _get_existing_attachments(
         self, cloud_key: str,

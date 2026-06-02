@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [1.5.0] - 2026-06-02
+
+### Fixed
+- **Comment bodies were corrupted on restore** — the v3 API stores comment bodies as ADF documents (dicts). The restore code concatenated the dict straight into an f-string, so restored comments read `[Originally by …]\n{'type': 'doc', 'version': 1, …}` instead of the actual text. Comments now preserve the original ADF content with the attribution prepended as its own paragraph. Found via live round-trip testing.
+- **Worklog comments had the same corruption** — fixed the same way.
+- **HTTP client could crash on a valid 2xx response** — a `200`/`201` with an empty or non-JSON body raised `JSONDecodeError`. Such responses now return an empty dict.
+- **`202 Accepted` is now treated as success** instead of raising an error (some endpoints return it).
+
+### Added
+- **Phase 6: best-effort status restore (opt-in)** — after creating issues, optionally transition each one to its original status via `POST /issue/{key}/transitions`. Conservative by design (single direct transition only; multi-step workflows and required-field screens are left at the default and logged). Enable with `--with-statuses` (CLI) or phase `6` in the interactive prompt. Off by default because transitions fire workflow rules and notifications.
+- **Offline test suite** — 34 `pytest` tests covering ADF conversion/flattening, the comment/worklog ADF-attribution fix, key mapping, phase ordering, the two-pass subtask logic, config validation, and HTTP retry/backoff/2xx handling. `pytest` is now part of the CI matrix (Python 3.10–3.13).
+
+### Changed
+- Extracted the issue creation-ordering helpers (`_issue_sort_key`, `_is_subtask`) to module level for testability; behavior is unchanged.
+
+---
+
 ## [1.4.0] - 2026-05-27
 
 ### Added
